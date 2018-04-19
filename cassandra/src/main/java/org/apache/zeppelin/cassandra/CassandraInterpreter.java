@@ -173,15 +173,12 @@ public class CassandraInterpreter extends Interpreter {
   @Override
   public void open() {
 
-    final String[] addresses = getProperty(CASSANDRA_HOSTS).split(",");
+    String hosts = getProperty(CASSANDRA_HOSTS);
+    final String[] addresses = hosts.split(",");
     final int port = parseInt(getProperty(CASSANDRA_PORT));
-    StringBuilder hosts = new StringBuilder();
-    for (String address : addresses) {
-      hosts.append(address).append(",");
-    }
 
-    LOGGER.info("Bootstrapping Cassandra Java Driver to connect to " + hosts.toString() +
-            "on port " + port);
+    LOGGER.info("Bootstrapping Cassandra Java Driver to connect to " + hosts +
+            " on port " + port);
 
     Compression compression = driverConfig.getCompressionProtocol(this);
 
