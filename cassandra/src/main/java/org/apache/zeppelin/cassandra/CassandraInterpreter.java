@@ -205,12 +205,11 @@ public class CassandraInterpreter extends Interpreter {
     if (runWithSSL != null && runWithSSL.equals("true")) {
       LOGGER.debug("Cassandra Interpreter: Using SSL");
 
-      try {
+      try (InputStream stream = Files.newInputStream(Paths.get(
+              getProperty(CASSANDRA_TRUSTSTORE_PATH)))) {
         final SSLContext sslContext;
         {
           final KeyStore trustStore = KeyStore.getInstance("JKS");
-          final InputStream stream = Files.newInputStream(Paths.get(
-                  getProperty(CASSANDRA_TRUSTSTORE_PATH)));
           trustStore.load(stream, getProperty(CASSANDRA_TRUSTSTORE_PASSWORD).toCharArray());
 
           final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
