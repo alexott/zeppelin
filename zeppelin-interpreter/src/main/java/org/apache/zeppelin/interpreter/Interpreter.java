@@ -162,11 +162,19 @@ public abstract class Interpreter {
 
   @ZeppelinApi
   public String getProperty(String key) {
-    logger.debug("key: {}, value: {}", key, getProperty().getProperty(key));
+    String value = getProperty().getProperty(key);
+    logger.debug("key: {}, value: {}", key, value);
 
-    return getProperty().getProperty(key);
+    return value;
   }
 
+  @ZeppelinApi
+  public String getProperty(String key, String defaultValue) {
+    String value = getProperty().getProperty(key);
+    logger.debug("key: {}, value: {}, defaultValue: {}", key, value, defaultValue);
+
+    return (value == null ? defaultValue : value);
+  }
 
   public String getClassName() {
     return this.getClass().getName();
