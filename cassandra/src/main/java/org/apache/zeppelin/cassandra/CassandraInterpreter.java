@@ -23,6 +23,7 @@ import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.JdkSSLOptions;
 import com.datastax.driver.core.ProtocolOptions.Compression;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.RemoteEndpointAwareJdkSSLOptions;
 import com.datastax.driver.dse.DseCluster;
 import com.datastax.driver.dse.DseSession;
 
@@ -219,9 +220,9 @@ public class CassandraInterpreter extends Interpreter {
           sslContext = SSLContext.getInstance("TLS");
           sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
         }
-        clusterBuilder = clusterBuilder.withSSL(JdkSSLOptions.builder()
-                .withSSLContext(sslContext)
-                .build());
+        JdkSSLOptions sslOptions = RemoteEndpointAwareJdkSSLOptions.builder()
+                .withSSLContext(sslContext).build();
+        clusterBuilder = clusterBuilder.withSSL(sslOptions);
       } catch (Exception e) {
         LOGGER.error(e.toString());
       }
