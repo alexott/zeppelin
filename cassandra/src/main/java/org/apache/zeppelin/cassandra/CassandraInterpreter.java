@@ -19,14 +19,11 @@
  */
 package org.apache.zeppelin.cassandra;
 
-import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.JdkSSLOptions;
 import com.datastax.driver.core.ProtocolOptions.Compression;
-import com.datastax.driver.core.Session;
 import com.datastax.driver.core.RemoteEndpointAwareJdkSSLOptions;
 import com.datastax.driver.dse.DseCluster;
 import com.datastax.driver.dse.DseSession;
-
 import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterResult;
@@ -160,14 +157,24 @@ public class CassandraInterpreter extends Interpreter {
 
   static final List NO_COMPLETION = new ArrayList<>();
 
-  DseCluster.Builder clusterBuilder;
+  InterpreterLogic helper;
   DseCluster cluster;
   DseSession session;
-  private InterpreterLogic helper;
+
   private JavaDriverConfig driverConfig = new JavaDriverConfig();
 
   public CassandraInterpreter(Properties properties) {
     super(properties);
+  }
+
+  private void addCredentials(DseCluster.Builder clusterBuilder) {
+    String username = getProperty(CASSANDRA_CREDENTIALS_USERNAME);
+    String password = getProperty(CASSANDRA_CREDENTIALS_PASSWORD);
+
+    // https://github.com/apache/zeppelin/pull/860/commits/cfe4c8627bb7f4ba57e5ee3369bcbd66e3aba44d
+//    AuthenticationInfo authenticationInfo =  this. //contextInterpreter.getAuthenticationInfo();
+
+    clusterBuilder.withCredentials(username, password);
   }
 
   @Override
@@ -182,14 +189,12 @@ public class CassandraInterpreter extends Interpreter {
 
     Compression compression = driverConfig.getCompressionProtocol(this);
 
-    clusterBuilder = DseCluster.builder()
+    DseCluster.Builder clusterBuilder = DseCluster.builder()
             .addContactPoints(addresses)
             .withPort(port)
             .withProtocolVersion(driverConfig.getProtocolVersion(this))
             .withClusterName(getProperty(CASSANDRA_CLUSTER_NAME))
             .withCompression(compression)
-            .withCredentials(getProperty(CASSANDRA_CREDENTIALS_USERNAME),
-                    getProperty(CASSANDRA_CREDENTIALS_PASSWORD))
             .withLoadBalancingPolicy(driverConfig.getLoadBalancingPolicy(this))
             .withRetryPolicy(driverConfig.getRetryPolicy(this))
             .withReconnectionPolicy(driverConfig.getReconnectionPolicy(this))
@@ -199,6 +204,8 @@ public class CassandraInterpreter extends Interpreter {
             .withPoolingOptions(driverConfig.getPoolingOptions(this))
             .withQueryOptions(driverConfig.getQueryOptions(this))
             .withSocketOptions(driverConfig.getSocketOptions(this));
+
+    addCredentials(clusterBuilder);
 
     final String runWithSSL = getProperty(CASSANDRA_WITH_SSL, "false");
     if (runWithSSL.equalsIgnoreCase("true")) {
