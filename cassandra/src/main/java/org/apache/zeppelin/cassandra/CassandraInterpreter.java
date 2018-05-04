@@ -248,6 +248,7 @@ public class CassandraInterpreter extends Interpreter {
 
   @Override
   public InterpreterResult interpret(String st, InterpreterContext context) {
+    // TODO(alex): put here a call to function that will fetch user-specific session...
     return helper.interpret(session, st, context);
   }
 

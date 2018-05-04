@@ -129,63 +129,124 @@ object ParagraphParser {
                                                             """);\s*$""").r
   val DESCRIBE_MATERIALIZED_VIEWS_PATTERN = ("""^(?i)\s*(?:DESCRIBE|DESC)\s+MATERIALIZED\s+VIEWS\s*;\s*$""").r
 
+  // TODO(alex): add patterns for "describe ... search index"
 
   val HELP_PATTERN = """^(?i)\s*HELP;\s*$""".r
 }
 
+// TODO(alex): Use the Cassandra's CQL parser?
 class ParagraphParser extends RegexParsers{
 
 
   import ParagraphParser._
 
-  def singleLineCommentHash: Parser[Comment] = """\s*#.*""".r ^^ {case text => Comment(text.trim.replaceAll("#",""))}
-  def singleLineCommentDoubleSlashes: Parser[Comment] = """\s*//.*""".r ^^ {case text => Comment(text.trim.replaceAll("//",""))}
+  def singleLineCommentHash: Parser[Comment] = """\s*#.*""".r ^^ {
+    case text => Comment(text.trim.replaceAll("#",""))
+  }
+  def singleLineCommentDoubleSlashes: Parser[Comment] = """\s*//.*""".r ^^ {
+    case text => Comment(text.trim.replaceAll("//",""))
+  }
   def singleLineComment: Parser[Comment] = singleLineCommentHash | singleLineCommentDoubleSlashes
 
-  def multiLineComment: Parser[Comment] = """(?s)/\*(.*)\*/""".r ^^ {case text => Comment(text.trim.replaceAll("""/\*""","").replaceAll("""\*/""",""))}
+  def multiLineComment: Parser[Comment] = """(?s)/\*(.*)\*/""".r ^^ {
+    case text => Comment(text.trim.replaceAll("""/\*""","")
+      .replaceAll("""\*/""",""))}
 
   //Query parameters
-  def consistency: Parser[Consistency] = """\s*@consistency.+""".r ^^ {case x => extractConsistency(x.trim)}
-  def serialConsistency: Parser[SerialConsistency] = """\s*@serialConsistency.+""".r ^^ {case x => extractSerialConsistency(x.trim)}
-  def timestamp: Parser[Timestamp] = """\s*@timestamp.+""".r ^^ {case x => extractTimestamp(x.trim)}
-  def retryPolicy: Parser[RetryPolicy] = """\s*@retryPolicy.+""".r ^^ {case x => extractRetryPolicy(x.trim)}
-  def fetchSize: Parser[FetchSize] = """\s*@fetchSize.+""".r ^^ {case x => extractFetchSize(x.trim)}
+  def consistency: Parser[Consistency] = """\s*@consistency.+""".r ^^ {
+    case x => extractConsistency(x.trim)
+  }
+  def serialConsistency: Parser[SerialConsistency] = """\s*@serialConsistency.+""".r ^^ {
+    case x => extractSerialConsistency(x.trim)
+  }
+  def timestamp: Parser[Timestamp] = """\s*@timestamp.+""".r ^^ {
+    case x => extractTimestamp(x.trim)
+  }
+  def retryPolicy: Parser[RetryPolicy] = """\s*@retryPolicy.+""".r ^^ {
+    case x => extractRetryPolicy(x.trim)
+  }
+  def fetchSize: Parser[FetchSize] = """\s*@fetchSize.+""".r ^^ {
+    case x => extractFetchSize(x.trim)
+  }
   def requestTimeOut: Parser[RequestTimeOut] = """\s*@requestTimeOut.+""".r ^^ {case x => extractRequestTimeOut(x.trim)}
 
   //Statements
-  def createFunctionStatement: Parser[SimpleStm] = UDF_PATTERN ^^{case x => extractUdfStatement(x.trim)}
-  def genericStatement: Parser[SimpleStm] = s"""$GENERIC_STATEMENT_PREFIX[^;]+;""".r ^^ {case x => extractSimpleStatement(x.trim)}
+  def createFunctionStatement: Parser[SimpleStm] = UDF_PATTERN ^^{
+    case x => extractUdfStatement(x.trim)
+  }
+  def genericStatement: Parser[SimpleStm] = s"""$GENERIC_STATEMENT_PREFIX[^;]+;""".r ^^ {
+    case x => extractSimpleStatement(x.trim)
+  }
 //  def allStatement: Parser[SimpleStm] = udfStatement | genericStatement
 
-  def prepare: Parser[PrepareStm] = """\s*@prepare.+""".r ^^ {case x => extractPreparedStatement(x.trim)}
-  def removePrepare: Parser[RemovePrepareStm] = """\s*@remove_prepare.+""".r ^^ {case x => extractRemovePreparedStatement(x.trim)}
-  def bind: Parser[BoundStm] = """\s*@bind.+""".r ^^ {case x => extractBoundStatement(x.trim)}
-
+  def prepare: Parser[PrepareStm] = """\s*@prepare.+""".r ^^ {
+    case x => extractPreparedStatement(x.trim)
+  }
+  def removePrepare: Parser[RemovePrepareStm] = """\s*@remove_prepare.+""".r ^^ {
+    case x => extractRemovePreparedStatement(x.trim)
+  }
+  def bind: Parser[BoundStm] = """\s*@bind.+""".r ^^ {
+    case x => extractBoundStatement(x.trim)
+  }
 
   //Meta data
-  private def describeCluster: Parser[DescribeClusterCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+CLUSTER.*""".r ^^ {extractDescribeClusterCmd(_)}
-  private def describeKeyspaces: Parser[DescribeKeyspacesCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+KEYSPACES.*""".r ^^ {extractDescribeKeyspacesCmd(_)}
-  private def describeTables: Parser[DescribeTablesCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+TABLES.*""".r ^^ {extractDescribeTablesCmd(_)}
-  private def describeTypes: Parser[DescribeTypesCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+TYPES.*""".r ^^ {extractDescribeTypesCmd(_)}
-  private def describeFunctions: Parser[DescribeFunctionsCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+FUNCTIONS.*""".r ^^ {extractDescribeFunctionsCmd(_)}
-  private def describeAggregates: Parser[DescribeAggregatesCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+AGGREGATES.*""".r ^^ {extractDescribeAggregatesCmd(_)}
-  private def describeMaterializedViews: Parser[DescribeMaterializedViewsCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+MATERIALIZED\s+VIEWS.*""".r ^^ {extractDescribeMaterializedViewsCmd(_)}
-  private def describeKeyspace: Parser[DescribeKeyspaceCmd] = """\s*(?i)(?:DESCRIBE|DESC)\s+KEYSPACE\s+.+""".r ^^ {extractDescribeKeyspaceCmd(_)}
-  private def describeTable: Parser[DescribeTableCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+TABLE\s+.+""".r ^^ {extractDescribeTableCmd(_)}
-  private def describeType: Parser[DescribeTypeCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+TYPE\s+.*""".r ^^ {extractDescribeTypeCmd(_)}
-  private def describeFunction: Parser[DescribeFunctionCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+FUNCTION\s+.*""".r ^^ {extractDescribeFunctionCmd(_)}
-  private def describeAggregate: Parser[DescribeAggregateCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+AGGREGATE\s+.*""".r ^^ {extractDescribeAggregateCmd(_)}
-  private def describeMaterializedView: Parser[DescribeMaterializedViewCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+MATERIALIZED\s+VIEW\s+.*""".r ^^ {extractDescribeMaterializedViewCmd(_)}
+  private def describeCluster: Parser[DescribeClusterCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+CLUSTER.*""".r ^^ {
+    extractDescribeClusterCmd(_)
+  }
+  private def describeKeyspaces: Parser[DescribeKeyspacesCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+KEYSPACES.*""".r ^^ {
+    extractDescribeKeyspacesCmd(_)
+  }
+  private def describeTables: Parser[DescribeTablesCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+TABLES.*""".r ^^ {
+    extractDescribeTablesCmd(_)
+  }
+  private def describeTypes: Parser[DescribeTypesCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+TYPES.*""".r ^^ {
+    extractDescribeTypesCmd(_)
+  }
+  private def describeFunctions: Parser[DescribeFunctionsCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+FUNCTIONS.*""".r ^^ {
+    extractDescribeFunctionsCmd(_)
+  }
+  private def describeAggregates: Parser[DescribeAggregatesCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+AGGREGATES.*""".r ^^ {
+    extractDescribeAggregatesCmd(_)
+  }
+  private def describeMaterializedViews: Parser[DescribeMaterializedViewsCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+MATERIALIZED\s+VIEWS.*""".r ^^ {
+    extractDescribeMaterializedViewsCmd(_)
+  }
+  private def describeKeyspace: Parser[DescribeKeyspaceCmd] = """\s*(?i)(?:DESCRIBE|DESC)\s+KEYSPACE\s+.+""".r ^^ {
+    extractDescribeKeyspaceCmd(_)
+  }
+  private def describeTable: Parser[DescribeTableCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+TABLE\s+.+""".r ^^ {
+    extractDescribeTableCmd(_)
+  }
+  private def describeType: Parser[DescribeTypeCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+TYPE\s+.*""".r ^^ {
+    extractDescribeTypeCmd(_)
+  }
+  private def describeFunction: Parser[DescribeFunctionCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+FUNCTION\s+.*""".r ^^ {
+    extractDescribeFunctionCmd(_)
+  }
+  private def describeAggregate: Parser[DescribeAggregateCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+AGGREGATE\s+.*""".r ^^ {
+    extractDescribeAggregateCmd(_)
+  }
+  private def describeMaterializedView: Parser[DescribeMaterializedViewCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+MATERIALIZED\s+VIEW\s+.*""".r ^^ {
+    extractDescribeMaterializedViewCmd(_)
+  }
 
 
   //Help
-  private def helpCommand: Parser[HelpCmd] = """(?i)\s*HELP.*""".r ^^{extractHelpCmd(_)}
+  private def helpCommand: Parser[HelpCmd] = """(?i)\s*HELP.*""".r ^^{
+    extractHelpCmd(_)
+  }
 
   private def beginBatch: Parser[String] = """(?i)\s*BEGIN\s+(UNLOGGED|COUNTER)?\s*BATCH""".r
   private def applyBatch: Parser[String] = """(?i)APPLY BATCH;""".r
-  private def insert: Parser[SimpleStm] = """(?i)INSERT [^;]+;""".r ^^{SimpleStm(_)}
-  private def update: Parser[SimpleStm] = """(?i)UPDATE [^;]+;""".r ^^{SimpleStm(_)}
-  private def delete: Parser[SimpleStm] = """(?i)DELETE [^;]+;""".r ^^{SimpleStm(_)}
+  private def insert: Parser[SimpleStm] = """(?i)INSERT [^;]+;""".r ^^{
+    SimpleStm(_)
+  }
+  private def update: Parser[SimpleStm] = """(?i)UPDATE [^;]+;""".r ^^{
+    SimpleStm(_)
+  }
+  private def delete: Parser[SimpleStm] = """(?i)DELETE [^;]+;""".r ^^{
+    SimpleStm(_)
+  }
 
   private def mutationStatements: Parser[List[QueryStatement]] = rep(insert | update | delete | bind)
 
