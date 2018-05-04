@@ -121,12 +121,12 @@ object ParagraphParser {
   val DESCRIBE_AGGREGATES_PATTERN = ("""^(?i)\s*(?:DESCRIBE|DESC)\s+AGGREGATES\s*;\s*$""").r
 
 
-  val DESCRIBE_MATERIALIZED_VIEW_PATTERN = ("""^(?i)\s*(?:DESCRIBE|DESC)\s+MATERIALIZED\s+VIEW\s*("""+VALID_IDENTIFIER+""");\s*$""").r
+  val DESCRIBE_MATERIALIZED_VIEW_PATTERN = ("""^(?i)\s*(?:DESCRIBE|DESC)\s+MATERIALIZED\s+VIEW\s*("""+VALID_IDENTIFIER+""")\s*;\s*$""").r
   val DESCRIBE_MATERIALIZED_VIEW_WITH_KEYSPACE_PATTERN = ("""^(?i)\s*(?:DESCRIBE|DESC)\s+MATERIALIZED\s+VIEW\s*(""" +
                                                             VALID_IDENTIFIER +
                                                             """)\.(""" +
                                                             VALID_IDENTIFIER +
-                                                            """);\s*$""").r
+                                                            """)\s*;\s*$""").r
   val DESCRIBE_MATERIALIZED_VIEWS_PATTERN = ("""^(?i)\s*(?:DESCRIBE|DESC)\s+MATERIALIZED\s+VIEWS\s*;\s*$""").r
 
   val DESCRIBE_SEARCH_INDEX_PATTERN = ("""^(?i)\s*(?:DESCRIBE|DESC)\s+(ACTIVE|PENDING)\s+SEARCH\s+INDEX\s+(SCHEMA|CONFIG)\s+ON\s*("""
