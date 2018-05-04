@@ -129,21 +129,26 @@ object TextBlockHierarchy {
   case class DescribeTypesCmd(override val statement: String = "DESCRIBE TYPES;")
     extends QueryStatement(DescribeAllTypesStatementType) with DescribeCommandStatement
 
-  case class DescribeFunctionsCmd(override val statement: String = "DESCRIBE FUNCTIONS;") extends QueryStatement(DescribeAllFunctionsStatementType)
+  case class DescribeFunctionsCmd(override val statement: String = "DESCRIBE FUNCTIONS;")
+    extends QueryStatement(DescribeAllFunctionsStatementType)
     with DescribeCommandStatement
 
-  case class DescribeAggregatesCmd(override val statement: String = "DESCRIBE AGGREGATES;") extends QueryStatement(DescribeAllAggregatesStatementType)
+  case class DescribeAggregatesCmd(override val statement: String = "DESCRIBE AGGREGATES;")
+    extends QueryStatement(DescribeAllAggregatesStatementType)
     with DescribeCommandStatement
 
-  case class DescribeMaterializedViewsCmd(override val statement: String = "DESCRIBE MATERIALIZED VIEWS;") extends QueryStatement(DescribeAllAggregatesStatementType)
+  case class DescribeMaterializedViewsCmd(override val statement: String = "DESCRIBE MATERIALIZED VIEWS;")
+    extends QueryStatement(DescribeAllAggregatesStatementType)
     with DescribeCommandStatement
 
-  case class DescribeKeyspaceCmd(keyspace: String) extends QueryStatement(DescribeKeyspaceStatementType)
+  case class DescribeKeyspaceCmd(keyspace: String)
+    extends QueryStatement(DescribeKeyspaceStatementType)
     with DescribeCommandStatement {
     override val statement: String = s"DESCRIBE KEYSPACE $keyspace;"
   }
 
-  case class DescribeTableCmd(keyspace:Option[String],table: String) extends QueryStatement(DescribeTableStatementType)
+  case class DescribeTableCmd(keyspace:Option[String],table: String)
+    extends QueryStatement(DescribeTableStatementType)
     with DescribeCommandStatement {
     override val statement: String = keyspace match {
       case Some(ks) => s"DESCRIBE TABLE $ks.$table;"
@@ -151,7 +156,8 @@ object TextBlockHierarchy {
     }
   }
 
-  case class DescribeTypeCmd(keyspace:Option[String], udtName: String) extends QueryStatement(DescribeTypeStatementType)
+  case class DescribeTypeCmd(keyspace:Option[String], udtName: String)
+    extends QueryStatement(DescribeTypeStatementType)
     with DescribeCommandStatement {
     override val statement: String = keyspace match {
       case Some(ks) => s"DESCRIBE TYPE $ks.$udtName;"
@@ -159,7 +165,8 @@ object TextBlockHierarchy {
     }
   }
 
-  case class DescribeFunctionCmd(keyspace:Option[String], function: String) extends QueryStatement(DescribeFunctionStatementType)
+  case class DescribeFunctionCmd(keyspace:Option[String], function: String)
+    extends QueryStatement(DescribeFunctionStatementType)
     with DescribeCommandStatement {
     override val statement: String = keyspace match {
       case Some(ks) => s"DESCRIBE FUNCTION $ks.$function;"
@@ -167,7 +174,8 @@ object TextBlockHierarchy {
     }
   }
 
-  case class DescribeAggregateCmd(keyspace:Option[String], aggregate: String) extends QueryStatement(DescribeAggregateStatementType)
+  case class DescribeAggregateCmd(keyspace:Option[String], aggregate: String)
+    extends QueryStatement(DescribeAggregateStatementType)
     with DescribeCommandStatement {
     override val statement: String = keyspace match {
       case Some(ks) => s"DESCRIBE AGGREGATE $ks.$aggregate;"
@@ -175,8 +183,9 @@ object TextBlockHierarchy {
     }
   }
 
-  case class DescribeMaterializedViewCmd(keyspace:Option[String], view: String) extends QueryStatement(DescribeMaterializedView)
-  with DescribeCommandStatement {
+  case class DescribeMaterializedViewCmd(keyspace:Option[String], view: String)
+    extends QueryStatement(DescribeMaterializedView)
+    with DescribeCommandStatement {
     override val statement: String = keyspace match {
       case Some(ks) => s"DESCRIBE MATERIALIZED VIEW $ks.$view;"
       case None => s"DESCRIBE MATERIALIZED VIEW $view;"
@@ -194,7 +203,6 @@ object TextBlockHierarchy {
         case None => s"DESCRIBE $status SEARCH INDEX $what ON $table;" // TODO(alex): fix it
     }
   }
-
 
   case class HelpCmd(val statement:String = "HELP;") extends QueryStatement(HelpStatementType)
 
