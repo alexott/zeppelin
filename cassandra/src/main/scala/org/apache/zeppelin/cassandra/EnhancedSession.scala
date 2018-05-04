@@ -44,6 +44,7 @@ class EnhancedSession(val session: Session) {
 
 
   val HTML_MAGIC = "%html \n"
+  val TEXT_MAGIC = "%text \n"
 
   val displayNoResult: String = HTML_MAGIC + noResultDisplay.formatNoResult
 
@@ -185,7 +186,9 @@ class EnhancedSession(val session: Session) {
 
   // TODO(alex): think how to display data...
   private def execute(describeSearchIndex: DescribeSearchIndexCmd): String = {
-    HTML_MAGIC + noResultDisplay.formatNoResult
+    val res = session.execute(describeSearchIndex.statement)
+    val resource = res.one().getString("resource")
+    TEXT_MAGIC + resource
   }
 
 
