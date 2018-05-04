@@ -483,10 +483,10 @@ class ParagraphParser extends RegexParsers{
 
   def extractSearchIndexCmd(text: String): DescribeSearchIndexCmd = {
     text match {
-      case DESCRIBE_SEARCH_INDEX_WITH_KEYSPACE_PATTERN(status, what, keyspace,view) =>
-        new DescribeSearchIndexCmd(status, what, Option(keyspace),view)
-      case DESCRIBE_SEARCH_INDEX_PATTERN(status, what, view) =>
-        new DescribeSearchIndexCmd(status, what, Option.empty,view)
+      case DESCRIBE_SEARCH_INDEX_WITH_KEYSPACE_PATTERN(status, what, keyspace, table) =>
+        new DescribeSearchIndexCmd(status, what, Option(keyspace), table)
+//      case DESCRIBE_SEARCH_INDEX_PATTERN(status, what, view) =>
+//        new DescribeSearchIndexCmd(status, what, Option.empty,view)
       case _ => throw new InterpreterException(s"Invalid syntax for DESCRIBE SEARCH INDEX. " +
         s"""It should comply to the patterns: ${DESCRIBE_SEARCH_INDEX_WITH_KEYSPACE_PATTERN.toString} or ${DESCRIBE_SEARCH_INDEX_PATTERN.toString}""".stripMargin)
     }

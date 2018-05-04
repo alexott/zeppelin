@@ -93,6 +93,7 @@ object TextBlockHierarchy {
   object DescribeFunctionStatementType extends StatementType
   object DescribeAggregateStatementType extends StatementType
   object DescribeMaterializedView extends StatementType
+  object DescribeSearchIndexType extends StatementType
   object HelpStatementType extends StatementType
 
   abstract class QueryStatement(val statementType: StatementType) extends AnyBlock(StatementBlock) {
@@ -182,11 +183,15 @@ object TextBlockHierarchy {
     }
   }
 
-  case class DescribeSearchIndexCmd(status: String, what: String, keyspace:Option[String], table: String) extends QueryStatement(DescribeMaterializedView)
+  case class DescribeSearchIndexCmd(status: String, what: String, keyspace:Option[String], table: String)
+    extends QueryStatement(DescribeSearchIndexType)
     with DescribeCommandStatement {
-    override val statement: String = keyspace match {
-      case Some(ks) => s"DESCRIBE $status SEARCH INDEX $what ON $ks.$table;"
-      case None => s"DESCRIBE $status SEARCH INDEX $what ON $table;"
+      val resource_name_init = if (what.equalsIgnoreCase("schema")) "schema.xml" else "solrconfig.xml"
+      val resource_name = if (status.equalsIgnoreCase("active")) resource_name_init + ".bak" else resource_name_init
+      override val statement: String = keyspace match {
+        case Some(ks) => s"select blobAsText(resource_value) as resource from solr_admin.solr_resources where " +
+          s"core_name = '$ks.$table' and resource_name = '$resource_name'";
+        case None => s"DESCRIBE $status SEARCH INDEX $what ON $table;" // TODO(alex): fix it
     }
   }
 
