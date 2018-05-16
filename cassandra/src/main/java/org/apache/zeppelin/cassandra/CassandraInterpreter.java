@@ -27,6 +27,7 @@ import com.datastax.driver.dse.DseSession;
 import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterResult;
+import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
@@ -39,9 +40,11 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyStore;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Properties;
+import java.util.Collections;
 
 import static java.lang.Integer.parseInt;
 
@@ -61,6 +64,7 @@ public class CassandraInterpreter extends Interpreter {
   public static final String CASSANDRA_COMPRESSION_PROTOCOL = "cassandra.compression.protocol";
   static final String CASSANDRA_CREDENTIALS_USERNAME = "cassandra.credentials.username";
   static final String CASSANDRA_CREDENTIALS_PASSWORD = "cassandra.credentials.password";
+  static final String CASSANDRA_CREDENTIALS_SOURCE = "cassandra.credentials.source";
   public static final String CASSANDRA_LOAD_BALANCING_POLICY = "cassandra.load.balancing.policy";
   public static final String CASSANDRA_RETRY_POLICY = "cassandra.retry.policy";
   public static final String CASSANDRA_RECONNECTION_POLICY = "cassandra.reconnection.policy";
@@ -155,11 +159,30 @@ public class CassandraInterpreter extends Interpreter {
   public static final String LOGGING_DOWNGRADING_RETRY = "LOGGING_DOWNGRADING";
   public static final String LOGGING_FALLTHROUGH_RETRY = "LOGGING_FALLTHROUGH";
 
-  static final List NO_COMPLETION = new ArrayList<>();
+  static final List NO_COMPLETION = Collections.emptyList();
 
-  InterpreterLogic helper;
-  DseCluster cluster;
-  DseSession session;
+  // TODO(alex): should it include last used timestamp?
+  static class SessionHolder {
+    DseCluster cluster;
+    DseSession session;
+
+    SessionHolder(DseCluster cluster, DseSession session) {
+      this.cluster = cluster;
+      this.session = session;
+    }
+
+    public DseCluster getCluster() {
+      return cluster;
+    }
+
+    public DseSession getSession() {
+      return session;
+    }
+  };
+
+  // TODO(alex): use static + ConcurrentHashMap?
+  // we need to have a job to cleanup it...
+  private Map<String, SessionHolder> sessions = new HashMap<String, SessionHolder>();
 
   private JavaDriverConfig driverConfig = new JavaDriverConfig();
 
@@ -167,19 +190,7 @@ public class CassandraInterpreter extends Interpreter {
     super(properties);
   }
 
-  private void addCredentials(DseCluster.Builder clusterBuilder) {
-    String username = getProperty(CASSANDRA_CREDENTIALS_USERNAME);
-    String password = getProperty(CASSANDRA_CREDENTIALS_PASSWORD);
-
-    // https://github.com/apache/zeppelin/pull/860/commits/cfe4c8627bb7f4ba57e5ee3369bcbd66e3aba44d
-//    AuthenticationInfo authenticationInfo =  this. //contextInterpreter.getAuthenticationInfo();
-
-    clusterBuilder.withCredentials(username, password);
-  }
-
-  @Override
-  public void open() {
-
+  private DseCluster createCluster(final String username, final String password) {
     String hosts = getProperty(CASSANDRA_HOSTS, DEFAULT_HOST);
     final String[] addresses = hosts.split(",");
     final int port = parseInt(getProperty(CASSANDRA_PORT, DEFAULT_PORT));
@@ -203,9 +214,8 @@ public class CassandraInterpreter extends Interpreter {
                     parseInt(getProperty(CASSANDRA_MAX_SCHEMA_AGREEMENT_WAIT_SECONDS)))
             .withPoolingOptions(driverConfig.getPoolingOptions(this))
             .withQueryOptions(driverConfig.getQueryOptions(this))
-            .withSocketOptions(driverConfig.getSocketOptions(this));
-
-    addCredentials(clusterBuilder);
+            .withSocketOptions(driverConfig.getSocketOptions(this))
+            .withCredentials(username, password);
 
     final String runWithSSL = getProperty(CASSANDRA_WITH_SSL, "false");
     if (runWithSSL.equalsIgnoreCase("true")) {
@@ -235,25 +245,73 @@ public class CassandraInterpreter extends Interpreter {
       LOGGER.debug("Cassandra Interpreter: Not using SSL");
     }
 
-    cluster = clusterBuilder.build();
-    session = cluster.connect();
+    return clusterBuilder.build();
+  }
+
+  @Override
+  public void open() {
+  }
+
+
+  String generateKey(final String username, final String password) {
+    return username;
   }
 
   DseSession getSession(InterpreterContext context) {
+    String username = "UNKNOWN";
+    String password = "UNKNOWN";
+    String authSource = getProperty(CASSANDRA_CREDENTIALS_SOURCE, "CONFIG").toUpperCase();
+
+    switch (authSource) {
+        case "CREDENTIALS": { // get username/password from configured credentials
+
+          break;
+        }
+        case "AUTH": {// get username/password from authentication session
+// https://github.com/apache/zeppelin/pull/860/commits/cfe4c8627bb7f4ba57e5ee3369bcbd66e3aba44d
+//    AuthenticationInfo authenticationInfo =  this. //contextInterpreter.getAuthenticationInfo();
+
+          break;
+        }
+
+        case "CONFIG":
+        default: {
+          username = getProperty(CASSANDRA_CREDENTIALS_USERNAME);
+          password = getProperty(CASSANDRA_CREDENTIALS_PASSWORD);
+        }
+    }
+
+    final DseSession session;
+    String key = generateKey(username, password);
+    SessionHolder holder = sessions.get(key);
+    if (holder == null) {
+      DseCluster cluster = createCluster(username, password);
+      session = cluster.connect();
+      sessions.put(key, new SessionHolder(cluster, session));
+    } else {
+      session = holder.getSession();
+    }
+
     return session;
   }
 
   @Override
   public void close() {
-    // TODO(alex): iterate over the all stored entries & close sessions & clusters
-    session.close();
-    cluster.close();
+    for (SessionHolder holder: sessions.values()) {
+      if (holder != null) {
+        holder.getSession().close();
+        holder.getCluster().close();
+      }
+    }
+    sessions.clear();
   }
 
   @Override
   public InterpreterResult interpret(String st, InterpreterContext context) {
-    // TODO(alex): put here a call to function that will fetch user-specific session...
     DseSession session = getSession(context);
+    if (session == null) {
+      return new InterpreterResult(Code.ERROR, "Can't create Session");
+    }
     return InterpreterLogic.interpret(session, st, context);
   }
 
