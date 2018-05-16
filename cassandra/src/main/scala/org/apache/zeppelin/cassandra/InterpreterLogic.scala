@@ -171,7 +171,7 @@ class InterpreterLogic(val session: Session)  {
     } catch {
       case dex: DriverException => {
         logger.error(dex.getMessage, dex)
-        new InterpreterResult(Code.ERROR, parseException(dex))
+        new InterpreterResult(Code.ERROR, dex.getClass().getSimpleName() + ": " + dex.getMessage)
       }
       case pex:ParsingException => {
         logger.error(pex.getMessage, pex)
