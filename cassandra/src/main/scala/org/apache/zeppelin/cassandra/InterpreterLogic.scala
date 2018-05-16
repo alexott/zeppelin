@@ -88,7 +88,7 @@ object InterpreterLogic {
   val paragraphParser = new ParagraphParser
   val boundValuesParser = new BoundValuesParser
   
-  def interpret(session: DseSession, stringStatements : String, context: InterpreterContext): InterpreterResult = {
+  def interpret(session: Session, stringStatements : String, context: InterpreterContext): InterpreterResult = {
 
     logger.info(s"Executing CQL statements : \n\n$stringStatements\n")
 
@@ -284,7 +284,7 @@ object InterpreterLogic {
     statement
   }
 
-  def generateBoundStatement(session: DseSession, st: BoundStm, options: CassandraQueryOptions,context: InterpreterContext): BoundStatement = {
+  def generateBoundStatement(session: Session, st: BoundStm, options: CassandraQueryOptions,context: InterpreterContext): BoundStatement = {
     logger.debug(s"Generating bound statement with name : '${st.name}' and bound values : ${st.values}")
     preparedStatements.get(st.name) match {
       case Some(ps) => {
@@ -405,7 +405,7 @@ object InterpreterLogic {
     ps.bind(convertedValues.toArray: _*)
   }
 
-  protected def parseBoundValues(psName: String, boundValues: String): List[String] = {
+  def parseBoundValues(psName: String, boundValues: String): List[String] = {
     val result: BoundValuesParser#ParseResult[List[String]] = boundValuesParser.parseAll(boundValuesParser.values, boundValues)
 
     result match {
