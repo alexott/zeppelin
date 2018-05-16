@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.datastax.driver.core.DataType.Name._
 import com.datastax.driver.core._
+import com.datastax.driver.dse.DseSession
 import com.datastax.driver.core.exceptions.DriverException
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, FallthroughRetryPolicy, DowngradingConsistencyRetryPolicy, Policies}
 import org.apache.zeppelin.cassandra.TextBlockHierarchy._
@@ -82,27 +83,12 @@ object InterpreterLogic {
 
   val preparedStatements : mutable.Map[String,PreparedStatement] = new ConcurrentHashMap[String,PreparedStatement]().asScala
 
-  val logger = LoggerFactory.getLogger(classOf[InterpreterLogic])
+  val logger = LoggerFactory.getLogger(this.getClass)
 
   val paragraphParser = new ParagraphParser
   val boundValuesParser = new BoundValuesParser
   
-}
-
-/**
- * Real class to implement the
- * interpreting logic of CQL statements
- * and parameters blocks
- *
- * @param session java driver session
- */
-class InterpreterLogic(val session: Session)  {
-
-  val enhancedSession: EnhancedSession = new EnhancedSession(session)
-
-  import InterpreterLogic._
-
-  def interpret(session:Session, stringStatements : String, context: InterpreterContext): InterpreterResult = {
+  def interpret(session: DseSession, stringStatements : String, context: InterpreterContext): InterpreterResult = {
 
     logger.info(s"Executing CQL statements : \n\n$stringStatements\n")
 
@@ -155,7 +141,7 @@ class InterpreterLogic(val session: Session)  {
           case x => throw new InterpreterException(s"Unknown statement type : ${x}")
        }
 
-      val results: List[(Any,Any)] = for (statement <- statements) yield (enhancedSession.execute(statement),statement)
+      val results: List[(Any,Any)] = for (statement <- statements) yield (EnhancedSession.execute(session, statement),statement)
 
       if (results.nonEmpty) {
         results.last match {
@@ -165,7 +151,7 @@ class InterpreterLogic(val session: Session)  {
         }
 
       } else {
-        new InterpreterResult(Code.SUCCESS, enhancedSession.displayNoResult)
+        new InterpreterResult(Code.SUCCESS, EnhancedSession.displayNoResult)
       }
 
     } catch {
@@ -298,7 +284,7 @@ class InterpreterLogic(val session: Session)  {
     statement
   }
 
-  def generateBoundStatement(session: Session, st: BoundStm, options: CassandraQueryOptions,context: InterpreterContext): BoundStatement = {
+  def generateBoundStatement(session: DseSession, st: BoundStm, options: CassandraQueryOptions,context: InterpreterContext): BoundStatement = {
     logger.debug(s"Generating bound statement with name : '${st.name}' and bound values : ${st.values}")
     preparedStatements.get(st.name) match {
       case Some(ps) => {
