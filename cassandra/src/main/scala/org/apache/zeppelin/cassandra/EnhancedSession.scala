@@ -53,22 +53,22 @@ object EnhancedSession {
     HTML_MAGIC + noResultDisplay.noResultWithExecutionInfo(query, execInfo)
   }
 
-  private def execute(session: DseSession, describeCluster: DescribeClusterCmd): String = {
+  private def execute(session: Session, describeCluster: DescribeClusterCmd): String = {
     val metaData = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatClusterOnly(describeCluster.statement, metaData)
   }
 
-  private def execute(session: DseSession, describeKeyspaces: DescribeKeyspacesCmd): String = {
+  private def execute(session: Session, describeKeyspaces: DescribeKeyspacesCmd): String = {
     val metaData = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatClusterContent(describeKeyspaces.statement, metaData)
   }
 
-  private def execute(session: DseSession, describeTables: DescribeTablesCmd): String = {
+  private def execute(session: Session, describeTables: DescribeTablesCmd): String = {
     val metadata: Metadata = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatAllTables(describeTables.statement,metadata)
   }
 
-  private def execute(session: DseSession, describeKeyspace: DescribeKeyspaceCmd): String = {
+  private def execute(session: Session, describeKeyspace: DescribeKeyspaceCmd): String = {
     val keyspace: String = describeKeyspace.keyspace
     val metadata: Option[KeyspaceMetadata] = Option(session.getCluster.getMetadata.getKeyspace(keyspace))
     metadata match {
@@ -78,7 +78,7 @@ object EnhancedSession {
     }
   }
 
-  private def execute(session: DseSession, describeTable: DescribeTableCmd): String = {
+  private def execute(session: Session, describeTable: DescribeTableCmd): String = {
     val metaData = session.getCluster.getMetadata
     val tableName: String = describeTable.table
     val keyspace: String = describeTable.keyspace.orElse(Option(session.getLoggedKeyspace)).getOrElse("system")
@@ -89,7 +89,7 @@ object EnhancedSession {
     }
   }
 
-  private def execute(session: DseSession, describeUDT: DescribeTypeCmd): String = {
+  private def execute(session: Session, describeUDT: DescribeTypeCmd): String = {
     val metaData = session.getCluster.getMetadata
     val keyspace: String = describeUDT.keyspace.orElse(Option(session.getLoggedKeyspace)).getOrElse("system")
     val udtName: String = describeUDT.udtName
@@ -100,12 +100,12 @@ object EnhancedSession {
     }
   }
 
-  private def execute(session: DseSession, describeUDTs: DescribeTypesCmd): String = {
+  private def execute(session: Session, describeUDTs: DescribeTypesCmd): String = {
     val metadata: Metadata = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatAllUDTs(describeUDTs.statement, metadata)
   }
 
-  private def execute(session: DseSession, describeFunction: DescribeFunctionCmd): String = {
+  private def execute(session: Session, describeFunction: DescribeFunctionCmd): String = {
     val metaData = session.getCluster.getMetadata
     val keyspaceName: String = describeFunction.keyspace.orElse(Option(session.getLoggedKeyspace)).getOrElse("system")
     val functionName: String = describeFunction.function;
@@ -125,12 +125,12 @@ object EnhancedSession {
     }
   }
 
-  private def execute(session: DseSession, describeFunctions: DescribeFunctionsCmd): String = {
+  private def execute(session: Session, describeFunctions: DescribeFunctionsCmd): String = {
     val metadata: Metadata = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatAllFunctions(describeFunctions.statement, metadata)
   }
 
-  private def execute(session: DseSession, describeAggregate: DescribeAggregateCmd): String = {
+  private def execute(session: Session, describeAggregate: DescribeAggregateCmd): String = {
     val metaData = session.getCluster.getMetadata
     val keyspaceName: String = describeAggregate.keyspace.orElse(Option(session.getLoggedKeyspace)).getOrElse("system")
     val aggregateName: String = describeAggregate.aggregate;
@@ -154,12 +154,12 @@ object EnhancedSession {
     }
   }
 
-  private def execute(session: DseSession, describeAggregates: DescribeAggregatesCmd): String = {
+  private def execute(session: Session, describeAggregates: DescribeAggregatesCmd): String = {
     val metadata: Metadata = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatAllAggregates(describeAggregates.statement, metadata)
   }
 
-  private def execute(session: DseSession, describeMV: DescribeMaterializedViewCmd): String = {
+  private def execute(session: Session, describeMV: DescribeMaterializedViewCmd): String = {
     val metaData = session.getCluster.getMetadata
     val keyspaceName: String = describeMV.keyspace.orElse(Option(session.getLoggedKeyspace)).getOrElse("system")
     val viewName: String = describeMV.view
@@ -176,7 +176,7 @@ object EnhancedSession {
     }
   }
 
-  private def execute(session: DseSession, describeMVs: DescribeMaterializedViewsCmd): String = {
+  private def execute(session: Session, describeMVs: DescribeMaterializedViewsCmd): String = {
     val metadata: Metadata = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatAllMaterializedViews(describeMVs.statement, metadata)
   }
@@ -185,7 +185,7 @@ object EnhancedSession {
     HTML_MAGIC + helpDisplay.formatHelp()
   }
 
-  private def execute(session: DseSession, describeSearchIndex: DescribeSearchIndexCmd): String = {
+  private def execute(session: Session, describeSearchIndex: DescribeSearchIndexCmd): String = {
     val res = session.execute(describeSearchIndex.statement)
     val r1 = res.one()
     if (r1 == null) {
@@ -197,7 +197,7 @@ object EnhancedSession {
   }
 
 // TODO(alex): think how to make it's more generic, without match
-  def execute(session: DseSession, st: Any): Any = {
+  def execute(session: Session, st: Any): Any = {
     st match {
       case x:DescribeClusterCmd => execute(session, x)
       case x:DescribeKeyspaceCmd => execute(session, x)

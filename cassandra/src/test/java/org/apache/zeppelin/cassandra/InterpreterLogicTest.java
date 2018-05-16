@@ -68,7 +68,6 @@ public class InterpreterLogicTest {
     @Mock
     private Session session;
 
-    final InterpreterLogic helper = new InterpreterLogic(session);
 
     @Captor
     ArgumentCaptor<ParamOption[]> optionsCaptor;
@@ -79,7 +78,7 @@ public class InterpreterLogicTest {
         String input = "SELECT * FROM users LIMIT 10;";
 
         //When
-        final List<AnyBlock> anyBlocks = this.<AnyBlock>toJavaList(helper.parseInput(input));
+        final List<AnyBlock> anyBlocks = this.<AnyBlock>toJavaList(InterpreterLogic.parseInput(input));
 
         //Then
         assertThat(anyBlocks).hasSize(1);
@@ -97,7 +96,7 @@ public class InterpreterLogicTest {
                 "\t'SELECT * FROM users LIMIT 10'\n" +
                 "Did you forget to add ; (semi-colon) at the end of each CQL statement ?");
 
-        helper.parseInput(input);
+        InterpreterLogic.parseInput(input);
     }
 
     @Test
@@ -109,7 +108,7 @@ public class InterpreterLogicTest {
         when(intrContext.getGui().input("id", "'John'")).thenReturn("'John'");
 
         //When
-        final String actual = helper.maybeExtractVariables("SELECT * FROM {{table=zeppelin.demo}} WHERE id={{id='John'}}", intrContext);
+        final String actual = InterpreterLogic.maybeExtractVariables("SELECT * FROM {{table=zeppelin.demo}} WHERE id={{id='John'}}", intrContext);
 
         //Then
         assertThat(actual).isEqualTo("SELECT * FROM zeppelin.demo WHERE id='John'");
@@ -123,7 +122,7 @@ public class InterpreterLogicTest {
         when(intrContext.getGui().select(eq("name"), eq("'Paul'"), optionsCaptor.capture())).thenReturn("'Jack'");
 
         //When
-        final String actual = helper.maybeExtractVariables("SELECT * FROM zeppelin.artists WHERE name={{name='Paul'|'Jack'|'Smith'}}", intrContext);
+        final String actual = InterpreterLogic.maybeExtractVariables("SELECT * FROM zeppelin.artists WHERE name={{name='Paul'|'Jack'|'Smith'}}", intrContext);
 
         //Then
         assertThat(actual).isEqualTo("SELECT * FROM zeppelin.artists WHERE name='Jack'");
@@ -140,7 +139,7 @@ public class InterpreterLogicTest {
         when(intrContext.getGui()).thenReturn(gui);
 
         //When
-        final String actual = helper.maybeExtractVariables("SELECT * FROM zeppelin.demo", intrContext);
+        final String actual = InterpreterLogic.maybeExtractVariables("SELECT * FROM zeppelin.demo", intrContext);
 
         //Then
         verifyZeroInteractions(gui);
@@ -157,7 +156,7 @@ public class InterpreterLogicTest {
         when(intrContext.getParagraphId()).thenReturn("paragraphId");
 
         //When
-        final String actual = helper.maybeExtractVariables("SELECT * FROM zeppelin.demo WHERE id='{{id=John}}'", intrContext);
+        final String actual = InterpreterLogic.maybeExtractVariables("SELECT * FROM zeppelin.demo WHERE id='{{id=John}}'", intrContext);
 
         //Then
         assertThat(actual).isEqualTo("SELECT * FROM zeppelin.demo WHERE id='from_angular_registry'");
@@ -173,7 +172,7 @@ public class InterpreterLogicTest {
         expectedException.expectMessage("Invalid bound variable definition for '{{table?zeppelin.demo}}' in 'SELECT * FROM {{table?zeppelin.demo}} WHERE id={{id='John'}}'. It should be of form 'variable=defaultValue'");
 
         //Then
-        helper.maybeExtractVariables("SELECT * FROM {{table?zeppelin.demo}} WHERE id={{id='John'}}", intrContext);
+        InterpreterLogic.maybeExtractVariables("SELECT * FROM {{table?zeppelin.demo}} WHERE id={{id='John'}}", intrContext);
     }
 
 
@@ -183,7 +182,7 @@ public class InterpreterLogicTest {
         List<QueryParameters> options = Arrays.<QueryParameters>asList(new Consistency(ALL), new Consistency(ONE));
 
         //When
-        final CassandraQueryOptions actual = helper.extractQueryOptions(toScalaList(options));
+        final CassandraQueryOptions actual = InterpreterLogic.extractQueryOptions(toScalaList(options));
 
         //Then
         assertThat(actual.consistency().get()).isEqualTo(ALL);
@@ -196,7 +195,7 @@ public class InterpreterLogicTest {
         List<QueryParameters> options = Arrays.<QueryParameters>asList(new SerialConsistency(SERIAL), new SerialConsistency(LOCAL_SERIAL));
 
         //When
-        final CassandraQueryOptions actual = helper.extractQueryOptions(toScalaList(options));
+        final CassandraQueryOptions actual = InterpreterLogic.extractQueryOptions(toScalaList(options));
 
         //Then
         assertThat(actual.serialConsistency().get()).isEqualTo(SERIAL);
@@ -208,7 +207,7 @@ public class InterpreterLogicTest {
         List<QueryParameters> options = Arrays.<QueryParameters>asList(new Timestamp(123L), new Timestamp(456L));
 
         //When
-        final CassandraQueryOptions actual = helper.extractQueryOptions(toScalaList(options));
+        final CassandraQueryOptions actual = InterpreterLogic.extractQueryOptions(toScalaList(options));
 
         //Then
         assertThat(actual.timestamp().get()).isEqualTo(123L);
@@ -220,7 +219,7 @@ public class InterpreterLogicTest {
         List<QueryParameters> options = Arrays.<QueryParameters>asList(DowngradingRetryPolicy$.MODULE$, LoggingDefaultRetryPolicy$.MODULE$);
 
         //When
-        final CassandraQueryOptions actual = helper.extractQueryOptions(toScalaList(options));
+        final CassandraQueryOptions actual = InterpreterLogic.extractQueryOptions(toScalaList(options));
 
         //Then
         assertThat(actual.retryPolicy().get()).isSameAs(DowngradingRetryPolicy$.MODULE$);
@@ -232,7 +231,7 @@ public class InterpreterLogicTest {
         List<QueryParameters> options = Arrays.<QueryParameters>asList(new RequestTimeOut(100));
 
         //When
-        final CassandraQueryOptions actual = helper.extractQueryOptions(toScalaList(options));
+        final CassandraQueryOptions actual = InterpreterLogic.extractQueryOptions(toScalaList(options));
 
         //Then
         assertThat(actual.requestTimeOut().get()).isEqualTo(100);
@@ -250,7 +249,7 @@ public class InterpreterLogicTest {
                 Option.empty());
 
         //When
-        final SimpleStatement actual = helper.generateSimpleStatement(new SimpleStm(input), options, intrContext);
+        final SimpleStatement actual = InterpreterLogic.generateSimpleStatement(new SimpleStm(input), options, intrContext);
 
         //Then
         assertThat(actual).isNotNull();
@@ -272,7 +271,7 @@ public class InterpreterLogicTest {
                 Option.empty());
 
         //When
-        BatchStatement actual = helper.generateBatchStatement(UNLOGGED, options, toScalaList(asList(st1, st2, st3)));
+        BatchStatement actual = InterpreterLogic.generateBatchStatement(UNLOGGED, options, toScalaList(asList(st1, st2, st3)));
 
         //Then
         assertThat(actual).isNotNull();
@@ -290,7 +289,7 @@ public class InterpreterLogicTest {
         String bs="'jdoe',32,'John DOE',null, true, '2014-06-12 34:00:34'";
 
         //When
-        final List<String> actual = this.<String>toJavaList(helper.parseBoundValues("ps", bs));
+        final List<String> actual = this.<String>toJavaList(InterpreterLogic.parseBoundValues("ps", bs));
 
         //Then
         assertThat(actual).containsExactly("'jdoe'", "32", "'John DOE'",
@@ -303,7 +302,7 @@ public class InterpreterLogicTest {
         String dateString = "2015-07-30 12:00:01";
 
         //When
-        final Date actual = helper.parseDate(dateString);
+        final Date actual = InterpreterLogic.parseDate(dateString);
 
         //Then
         Calendar calendar = Calendar.getInstance();
@@ -323,7 +322,7 @@ public class InterpreterLogicTest {
         String dateString = "2015-07-30 12:00:01.123";
 
         //When
-        final Date actual = helper.parseDate(dateString);
+        final Date actual = InterpreterLogic.parseDate(dateString);
 
         //Then
         Calendar calendar = Calendar.getInstance();

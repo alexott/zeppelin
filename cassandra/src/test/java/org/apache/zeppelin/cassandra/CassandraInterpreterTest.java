@@ -126,14 +126,6 @@ public class CassandraInterpreterTest {
     }
 
     @Test
-    public void should_create_cluster_and_session_upon_call_to_open() throws Exception {
-        assertThat(interpreter.cluster).isNotNull();
-        assertThat(interpreter.cluster.getClusterName()).isEqualTo(session.getCluster().getClusterName());
-        assertThat(interpreter.session).isNotNull();
-        assertThat(interpreter.helper).isNotNull();
-    }
-
-    @Test
     public void should_interpret_simple_select() throws Exception {
         //Given
 
