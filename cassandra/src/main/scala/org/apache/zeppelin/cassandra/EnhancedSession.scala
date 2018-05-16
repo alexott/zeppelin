@@ -20,6 +20,7 @@
 package org.apache.zeppelin.cassandra
 
 import com.datastax.driver.core._
+import com.datastax.driver.dse.DseSession
 import org.apache.zeppelin.cassandra.TextBlockHierarchy._
 import org.apache.zeppelin.interpreter.InterpreterException
 
@@ -30,7 +31,7 @@ import scala.collection.JavaConverters._
  * with special statements
  * to describe schema
  */
-class EnhancedSession(val session: Session) {
+object EnhancedSession {
 
   val clusterDisplay = DisplaySystem.ClusterDisplay
   val keyspaceDisplay = DisplaySystem.KeyspaceDisplay
@@ -52,22 +53,22 @@ class EnhancedSession(val session: Session) {
     HTML_MAGIC + noResultDisplay.noResultWithExecutionInfo(query, execInfo)
   }
 
-  private def execute(describeCluster: DescribeClusterCmd): String = {
+  private def execute(session: DseSession, describeCluster: DescribeClusterCmd): String = {
     val metaData = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatClusterOnly(describeCluster.statement, metaData)
   }
 
-  private def execute(describeKeyspaces: DescribeKeyspacesCmd): String = {
+  private def execute(session: DseSession, describeKeyspaces: DescribeKeyspacesCmd): String = {
     val metaData = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatClusterContent(describeKeyspaces.statement, metaData)
   }
 
-  private def execute(describeTables: DescribeTablesCmd): String = {
+  private def execute(session: DseSession, describeTables: DescribeTablesCmd): String = {
     val metadata: Metadata = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatAllTables(describeTables.statement,metadata)
   }
 
-  private def execute(describeKeyspace: DescribeKeyspaceCmd): String = {
+  private def execute(session: DseSession, describeKeyspace: DescribeKeyspaceCmd): String = {
     val keyspace: String = describeKeyspace.keyspace
     val metadata: Option[KeyspaceMetadata] = Option(session.getCluster.getMetadata.getKeyspace(keyspace))
     metadata match {
@@ -77,7 +78,7 @@ class EnhancedSession(val session: Session) {
     }
   }
 
-  private def execute(describeTable: DescribeTableCmd): String = {
+  private def execute(session: DseSession, describeTable: DescribeTableCmd): String = {
     val metaData = session.getCluster.getMetadata
     val tableName: String = describeTable.table
     val keyspace: String = describeTable.keyspace.orElse(Option(session.getLoggedKeyspace)).getOrElse("system")
@@ -88,7 +89,7 @@ class EnhancedSession(val session: Session) {
     }
   }
 
-  private def execute(describeUDT: DescribeTypeCmd): String = {
+  private def execute(session: DseSession, describeUDT: DescribeTypeCmd): String = {
     val metaData = session.getCluster.getMetadata
     val keyspace: String = describeUDT.keyspace.orElse(Option(session.getLoggedKeyspace)).getOrElse("system")
     val udtName: String = describeUDT.udtName
@@ -99,12 +100,12 @@ class EnhancedSession(val session: Session) {
     }
   }
 
-  private def execute(describeUDTs: DescribeTypesCmd): String = {
+  private def execute(session: DseSession, describeUDTs: DescribeTypesCmd): String = {
     val metadata: Metadata = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatAllUDTs(describeUDTs.statement, metadata)
   }
 
-  private def execute(describeFunction: DescribeFunctionCmd): String = {
+  private def execute(session: DseSession, describeFunction: DescribeFunctionCmd): String = {
     val metaData = session.getCluster.getMetadata
     val keyspaceName: String = describeFunction.keyspace.orElse(Option(session.getLoggedKeyspace)).getOrElse("system")
     val functionName: String = describeFunction.function;
@@ -124,12 +125,12 @@ class EnhancedSession(val session: Session) {
     }
   }
 
-  private def execute(describeFunctions: DescribeFunctionsCmd): String = {
+  private def execute(session: DseSession, describeFunctions: DescribeFunctionsCmd): String = {
     val metadata: Metadata = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatAllFunctions(describeFunctions.statement, metadata)
   }
 
-  private def execute(describeAggregate: DescribeAggregateCmd): String = {
+  private def execute(session: DseSession, describeAggregate: DescribeAggregateCmd): String = {
     val metaData = session.getCluster.getMetadata
     val keyspaceName: String = describeAggregate.keyspace.orElse(Option(session.getLoggedKeyspace)).getOrElse("system")
     val aggregateName: String = describeAggregate.aggregate;
@@ -153,12 +154,12 @@ class EnhancedSession(val session: Session) {
     }
   }
 
-  private def execute(describeAggregates: DescribeAggregatesCmd): String = {
+  private def execute(session: DseSession, describeAggregates: DescribeAggregatesCmd): String = {
     val metadata: Metadata = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatAllAggregates(describeAggregates.statement, metadata)
   }
 
-  private def execute(describeMV: DescribeMaterializedViewCmd): String = {
+  private def execute(session: DseSession, describeMV: DescribeMaterializedViewCmd): String = {
     val metaData = session.getCluster.getMetadata
     val keyspaceName: String = describeMV.keyspace.orElse(Option(session.getLoggedKeyspace)).getOrElse("system")
     val viewName: String = describeMV.view
@@ -175,7 +176,7 @@ class EnhancedSession(val session: Session) {
     }
   }
 
-  private def execute(describeMVs: DescribeMaterializedViewsCmd): String = {
+  private def execute(session: DseSession, describeMVs: DescribeMaterializedViewsCmd): String = {
     val metadata: Metadata = session.getCluster.getMetadata
     HTML_MAGIC + clusterDisplay.formatAllMaterializedViews(describeMVs.statement, metadata)
   }
@@ -184,8 +185,7 @@ class EnhancedSession(val session: Session) {
     HTML_MAGIC + helpDisplay.formatHelp()
   }
 
-  // TODO(alex): think how to display data...
-  private def execute(describeSearchIndex: DescribeSearchIndexCmd): String = {
+  private def execute(session: DseSession, describeSearchIndex: DescribeSearchIndexCmd): String = {
     val res = session.execute(describeSearchIndex.statement)
     val r1 = res.one()
     if (r1 == null) {
@@ -196,24 +196,24 @@ class EnhancedSession(val session: Session) {
     }
   }
 
-
-  def execute(st: Any): Any = {
+// TODO(alex): think how to make it's more generic, without match
+  def execute(session: DseSession, st: Any): Any = {
     st match {
-      case x:DescribeClusterCmd => execute(x)
-      case x:DescribeKeyspaceCmd => execute(x)
-      case x:DescribeKeyspacesCmd => execute(x)
-      case x:DescribeTableCmd => execute(x)
-      case x:DescribeTablesCmd => execute(x)
-      case x:DescribeTypeCmd => execute(x)
-      case x:DescribeTypesCmd => execute(x)
-      case x:DescribeFunctionCmd => execute(x)
-      case x:DescribeFunctionsCmd => execute(x)
-      case x:DescribeAggregateCmd => execute(x)
-      case x:DescribeAggregatesCmd => execute(x)
-      case x:DescribeMaterializedViewCmd => execute(x)
-      case x:DescribeMaterializedViewsCmd => execute(x)
-      case x:DescribeSearchIndexCmd => execute(x)
-      case x:HelpCmd => execute(x)
+      case x:DescribeClusterCmd => execute(session, x)
+      case x:DescribeKeyspaceCmd => execute(session, x)
+      case x:DescribeKeyspacesCmd => execute(session, x)
+      case x:DescribeTableCmd => execute(session, x)
+      case x:DescribeTablesCmd => execute(session, x)
+      case x:DescribeTypeCmd => execute(session, x)
+      case x:DescribeTypesCmd => execute(session, x)
+      case x:DescribeFunctionCmd => execute(session, x)
+      case x:DescribeFunctionsCmd => execute(session, x)
+      case x:DescribeAggregateCmd => execute(session, x)
+      case x:DescribeAggregatesCmd => execute(session, x)
+      case x:DescribeMaterializedViewCmd => execute(session, x)
+      case x:DescribeMaterializedViewsCmd => execute(session, x)
+      case x:DescribeSearchIndexCmd => execute(session, x)
+      case x:HelpCmd => execute(session, x)
       case x:Statement => session.execute(x)
       case _ => throw new InterpreterException(s"Cannot execute statement '$st' of type ${st.getClass}")
     }

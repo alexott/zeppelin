@@ -237,11 +237,15 @@ public class CassandraInterpreter extends Interpreter {
 
     cluster = clusterBuilder.build();
     session = cluster.connect();
-    helper = new InterpreterLogic(session);
+  }
+
+  DseSession getSession(InterpreterContext context) {
+    return session;
   }
 
   @Override
   public void close() {
+    // TODO(alex): iterate over the all stored entries & close sessions & clusters
     session.close();
     cluster.close();
   }
@@ -249,7 +253,8 @@ public class CassandraInterpreter extends Interpreter {
   @Override
   public InterpreterResult interpret(String st, InterpreterContext context) {
     // TODO(alex): put here a call to function that will fetch user-specific session...
-    return helper.interpret(session, st, context);
+    DseSession session = getSession(context);
+    return InterpreterLogic.interpret(session, st, context);
   }
 
   @Override
