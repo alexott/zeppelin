@@ -187,8 +187,13 @@ class EnhancedSession(val session: Session) {
   // TODO(alex): think how to display data...
   private def execute(describeSearchIndex: DescribeSearchIndexCmd): String = {
     val res = session.execute(describeSearchIndex.statement)
-    val resource = res.one().getString("resource")
-    TEXT_MAGIC + resource
+    val r1 = res.one()
+    if (r1 == null) {
+      throw new InterpreterException(s"There is no search index on ${describeSearchIndex.keyspace.get}.${describeSearchIndex.table}")
+    } else {
+      val resource = r1.getString("resource")
+      TEXT_MAGIC + resource
+    }
   }
 
 
