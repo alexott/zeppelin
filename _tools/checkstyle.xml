@@ -216,7 +216,7 @@ limitations under the License.
         through' (or some other variants which we don't publicized to promote consistency). -->
       <property name="reliefPattern"
         value="fall through|Fall through|fallthru|Fallthru|falls through|Falls through|fallthrough|Fallthrough|No break|NO break|no break|continue on"/>
-      <property name="severity" value="error"/>
+      <property name="severity" value="warning"/>
     </module>
 
 
