@@ -19,12 +19,16 @@
  */
 package org.apache.zeppelin.cassandra;
 
+import com.datastax.driver.core.AuthProvider;
 import com.datastax.driver.core.JdkSSLOptions;
 import com.datastax.driver.core.ProtocolOptions.Compression;
 import com.datastax.driver.core.RemoteEndpointAwareJdkSSLOptions;
 import com.datastax.driver.dse.DseCluster;
 import com.datastax.driver.dse.DseSession;
+import com.datastax.driver.dse.auth.DseGSSAPIAuthProvider;
+import com.datastax.driver.dse.auth.DsePlainTextAuthProvider;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterResult;
@@ -44,6 +48,8 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyStore;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -163,9 +169,6 @@ public class CassandraInterpreter extends Interpreter {
   public static final String LOGGING_DOWNGRADING_RETRY = "LOGGING_DOWNGRADING";
   public static final String LOGGING_FALLTHROUGH_RETRY = "LOGGING_FALLTHROUGH";
 
-  private static final String DEFAULT_USER_NAME = "__USER_NAME__";
-  private static final String DEFAULT_USER_PASS = "__USER_PASSWD__";
-
   static final List NO_COMPLETION = Collections.emptyList();
 
   // TODO(alex): should it include last used timestamp?
@@ -187,6 +190,10 @@ public class CassandraInterpreter extends Interpreter {
     }
   };
 
+  enum AuthType {
+    NO, PASSWORD, GSSAPI
+  };
+
   // TODO(alex): use static + ConcurrentHashMap?
   // we need to have a job to cleanup it...
   private Map<String, SessionHolder> sessions = new HashMap<String, SessionHolder>();
@@ -197,12 +204,10 @@ public class CassandraInterpreter extends Interpreter {
     super(properties);
   }
 
-  private DseCluster createCluster(final String username, final String password) {
-    String hosts = getProperty(CASSANDRA_HOSTS, DEFAULT_HOST);
-    final String[] addresses = hosts.split(",");
+  private DseCluster createCluster(String[] addresses, AuthProvider authProvider ) {
     final int port = parseInt(getProperty(CASSANDRA_PORT, DEFAULT_PORT));
 
-    LOGGER.info("Bootstrapping Cassandra Java Driver to connect to " + hosts +
+    LOGGER.info("Bootstrapping Cassandra Java Driver to connect to " + StringUtils.join(addresses, ',') +
             " on port " + port);
 
     Compression compression = driverConfig.getCompressionProtocol(this);
@@ -223,8 +228,8 @@ public class CassandraInterpreter extends Interpreter {
             .withQueryOptions(driverConfig.getQueryOptions(this))
             .withSocketOptions(driverConfig.getSocketOptions(this));
 
-    if (!(DEFAULT_USER_NAME.equals(username) && DEFAULT_USER_PASS.equals(password))) {
-      clusterBuilder.withCredentials(username, password);
+    if (authProvider != null) {
+      clusterBuilder.withAuthProvider(authProvider);
     }
 
     final String runWithSSL = getProperty(CASSANDRA_WITH_SSL, "false");
@@ -263,24 +268,32 @@ public class CassandraInterpreter extends Interpreter {
   }
 
 
-  String generateKey(final String username, final String password) {
-    return DigestUtils.shaHex(username + ":" + password);
-  }
-
   // See JDBC interpreter regarding getting the Kerberos authentication params
   DseSession getSession(InterpreterContext context) {
+    String hosts = getProperty(CASSANDRA_HOSTS, DEFAULT_HOST);
+    final String[] addresses = hosts.split(",");
+
+    // TODO(alex): split auth part into separate function...
     String username = null;
     String password = null;
+    String proxyUser = null;
     String authSource = getProperty(CASSANDRA_CREDENTIALS_SOURCE, "CONFIG").toUpperCase();
 
+    AuthProvider authProvider = null;
+    AuthType authType = AuthType.NO;
+
+    AuthenticationInfo authenticationInfo = context.getAuthenticationInfo();
+
     switch (authSource) {
-        case "NO": {
-          username = DEFAULT_USER_NAME;
-          password = DEFAULT_USER_PASS;
-          break;
-        }
+        // Credentials are taken from 'Credentials' cache
+        case "CREDENTIALS-PROXY": {
+          if (authenticationInfo.isAnonymous()) {
+            throw new RuntimeException("Can't proxy anonymous user. Use 'CONFIG' or 'CREDENTIALS' auth source");
+          }
+          proxyUser = authenticationInfo.getUser();
+        } // No break is intended!
         case "CREDENTIALS": { // get username/password from configured credentials
-          AuthenticationInfo authenticationInfo = context.getAuthenticationInfo();
+          authType = AuthType.PASSWORD;
           if (authenticationInfo == null) {
             throw new RuntimeException("Can't retrieve authentication information from configured credentials");
           }
@@ -288,37 +301,82 @@ public class CassandraInterpreter extends Interpreter {
           if (userCredentials == null) {
             throw new RuntimeException("Can't retrieve user credentials from configured credentials");
           }
-          UsernamePassword usernamePassword = userCredentials.getUsernamePassword("cassandra.cassandra");
-          if (usernamePassword == null) {
-            throw new RuntimeException("Can't retrieve user name & password for entity 'cassandra.cassandra'" +
-            ", please add username & password in the 'Credential' section");
+          //
+          List<String> credentialKeys = new ArrayList<>();
+          credentialKeys.add("cassandra.cassandra(" + hosts + ")");
+          for (int i = 0; i < addresses.length; i++) {
+            credentialKeys.add("cassandra.cassandra(" + addresses[i] + ")");
           }
-          username = usernamePassword.getUsername();
-          password = usernamePassword.getPassword();
+          credentialKeys.add("cassandra.cassandra"); // fallback...
+          for (String credKey: credentialKeys) {
+            UsernamePassword usernamePassword = userCredentials.getUsernamePassword(credKey);
+            if (usernamePassword == null) {
+              continue;
+            }
+            username = usernamePassword.getUsername();
+            password = usernamePassword.getPassword();
+            break;
+          }
+          if (username == null || password == null) {
+            throw new RuntimeException("Can't retrieve user's name & password! " +
+                    "Please add username & password in the 'Credential' section as 'cassandra.cassandra'" +
+                    " (for all hosts), or as 'cassandra.cassandra(HOSTNAME)' (for specific host)");
+          }
           break;
         }
-        case "AUTH": {// get username/password from authentication session
-// https://github.com/apache/zeppelin/pull/860/commits/cfe4c8627bb7f4ba57e5ee3369bcbd66e3aba44d
-//    AuthenticationInfo authenticationInfo =  this. //contextInterpreter.getAuthenticationInfo();
 
-
-          break;
-        }
-
-        case "CONFIG":
-        default: {
+        // Credentials are taken from interpreter's configuration
+        case "CONFIG-PROXY": {
+          if (authenticationInfo.isAnonymous()) {
+            throw new RuntimeException("Can't proxy anonymous user. Use 'CONFIG' or 'CREDENTIALS' auth source");
+          }
+          proxyUser = authenticationInfo.getUser();
+        } // No break is intended!
+        case "CONFIG": {
           username = getProperty(CASSANDRA_CREDENTIALS_USERNAME);
           password = getProperty(CASSANDRA_CREDENTIALS_PASSWORD);
         }
+        case "NO":
+        default: { // No authentication by default
+        }
     }
 
-    logger.info("Username: '" + username + "', pass: '" + password + "'");
+    final String keySource;
+    switch (authType) {
+        case PASSWORD: {
+          StringBuilder sb = new StringBuilder().append(username).append(":").append(password);
+          if (proxyUser != null) {
+            authProvider = new DsePlainTextAuthProvider(username, password, proxyUser);
+            sb.append(":").append(proxyUser);
+          } else {
+            authProvider = new DsePlainTextAuthProvider(username, password);
+          }
+          logger.info("Username: '" + username + "', pass: '" + password + "', proxyUser: '" + proxyUser + "'");
+          keySource = sb.toString();
+          break;
+        }
+        case GSSAPI: {
+          DseGSSAPIAuthProvider.Builder builder = DseGSSAPIAuthProvider.builder();
+          if (proxyUser != null) {
+            builder.withAuthorizationId(proxyUser);
+          }
+          authProvider = builder.build();
+          keySource = "";
+          break;
+        }
+
+        case NO:
+        default: {
+          keySource = "NO_USER_PASSWORD";
+          break;
+        }
+    }
 
     final DseSession session;
-    String key = generateKey(username, password);
+    String key = DigestUtils.shaHex(keySource);
     SessionHolder holder = sessions.get(key);
     if (holder == null) {
-      DseCluster cluster = createCluster(username, password);
+      DseCluster cluster = createCluster(addresses, authProvider);
       session = cluster.connect();
       sessions.put(key, new SessionHolder(cluster, session));
     } else {
