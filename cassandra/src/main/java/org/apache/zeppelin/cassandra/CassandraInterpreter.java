@@ -24,6 +24,7 @@ import com.datastax.driver.core.ProtocolOptions.Compression;
 import com.datastax.driver.core.RemoteEndpointAwareJdkSSLOptions;
 import com.datastax.driver.dse.DseCluster;
 import com.datastax.driver.dse.DseSession;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterResult;
@@ -31,6 +32,9 @@ import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
+import org.apache.zeppelin.user.AuthenticationInfo;
+import org.apache.zeppelin.user.UserCredentials;
+import org.apache.zeppelin.user.UsernamePassword;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -159,6 +163,9 @@ public class CassandraInterpreter extends Interpreter {
   public static final String LOGGING_DOWNGRADING_RETRY = "LOGGING_DOWNGRADING";
   public static final String LOGGING_FALLTHROUGH_RETRY = "LOGGING_FALLTHROUGH";
 
+  private static final String DEFAULT_USER_NAME = "__USER_NAME__";
+  private static final String DEFAULT_USER_PASS = "__USER_PASSWD__";
+
   static final List NO_COMPLETION = Collections.emptyList();
 
   // TODO(alex): should it include last used timestamp?
@@ -214,8 +221,11 @@ public class CassandraInterpreter extends Interpreter {
                     parseInt(getProperty(CASSANDRA_MAX_SCHEMA_AGREEMENT_WAIT_SECONDS)))
             .withPoolingOptions(driverConfig.getPoolingOptions(this))
             .withQueryOptions(driverConfig.getQueryOptions(this))
-            .withSocketOptions(driverConfig.getSocketOptions(this))
-            .withCredentials(username, password);
+            .withSocketOptions(driverConfig.getSocketOptions(this));
+
+    if (!(DEFAULT_USER_NAME.equals(username) && DEFAULT_USER_PASS.equals(password))) {
+      clusterBuilder.withCredentials(username, password);
+    }
 
     final String runWithSSL = getProperty(CASSANDRA_WITH_SSL, "false");
     if (runWithSSL.equalsIgnoreCase("true")) {
@@ -254,22 +264,43 @@ public class CassandraInterpreter extends Interpreter {
 
 
   String generateKey(final String username, final String password) {
-    return username;
+    return DigestUtils.shaHex(username + ":" + password);
   }
 
+  // See JDBC interpreter regarding getting the Kerberos authentication params
   DseSession getSession(InterpreterContext context) {
-    String username = "UNKNOWN";
-    String password = "UNKNOWN";
+    String username = null;
+    String password = null;
     String authSource = getProperty(CASSANDRA_CREDENTIALS_SOURCE, "CONFIG").toUpperCase();
 
     switch (authSource) {
+        case "NO": {
+          username = DEFAULT_USER_NAME;
+          password = DEFAULT_USER_PASS;
+          break;
+        }
         case "CREDENTIALS": { // get username/password from configured credentials
-
+          AuthenticationInfo authenticationInfo = context.getAuthenticationInfo();
+          if (authenticationInfo == null) {
+            throw new RuntimeException("Can't retrieve authentication information from configured credentials");
+          }
+          UserCredentials userCredentials = authenticationInfo.getUserCredentials();
+          if (userCredentials == null) {
+            throw new RuntimeException("Can't retrieve user credentials from configured credentials");
+          }
+          UsernamePassword usernamePassword = userCredentials.getUsernamePassword("cassandra.cassandra");
+          if (usernamePassword == null) {
+            throw new RuntimeException("Can't retrieve user name & password for entity 'cassandra.cassandra'" +
+            ", please add username & password in the 'Credential' section");
+          }
+          username = usernamePassword.getUsername();
+          password = usernamePassword.getPassword();
           break;
         }
         case "AUTH": {// get username/password from authentication session
 // https://github.com/apache/zeppelin/pull/860/commits/cfe4c8627bb7f4ba57e5ee3369bcbd66e3aba44d
 //    AuthenticationInfo authenticationInfo =  this. //contextInterpreter.getAuthenticationInfo();
+
 
           break;
         }
@@ -280,6 +311,8 @@ public class CassandraInterpreter extends Interpreter {
           password = getProperty(CASSANDRA_CREDENTIALS_PASSWORD);
         }
     }
+
+    logger.info("Username: '" + username + "', pass: '" + password + "'");
 
     final DseSession session;
     String key = generateKey(username, password);
@@ -308,11 +341,12 @@ public class CassandraInterpreter extends Interpreter {
 
   @Override
   public InterpreterResult interpret(String st, InterpreterContext context) {
-    DseSession session = getSession(context);
-    if (session == null) {
-      return new InterpreterResult(Code.ERROR, "Can't create Session");
+    try {
+      DseSession session = getSession(context);
+      return InterpreterLogic.interpret(session, st, context);
+    } catch (Exception ex) {
+      return new InterpreterResult(Code.ERROR, "Can't create Session: " + ex.getMessage());
     }
-    return InterpreterLogic.interpret(session, st, context);
   }
 
   @Override
