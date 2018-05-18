@@ -49,12 +49,10 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
 import java.util.Properties;
 import java.util.Collections;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static java.lang.Integer.parseInt;
 
@@ -74,7 +72,7 @@ public class CassandraInterpreter extends Interpreter {
   public static final String CASSANDRA_COMPRESSION_PROTOCOL = "cassandra.compression.protocol";
   static final String CASSANDRA_CREDENTIALS_USERNAME = "cassandra.credentials.username";
   static final String CASSANDRA_CREDENTIALS_PASSWORD = "cassandra.credentials.password";
-  static final String CASSANDRA_CREDENTIALS_SOURCE = "cassandra.credentials.source";
+  private static final String CASSANDRA_CREDENTIALS_SOURCE = "cassandra.credentials.source";
   public static final String CASSANDRA_LOAD_BALANCING_POLICY = "cassandra.load.balancing.policy";
   public static final String CASSANDRA_RETRY_POLICY = "cassandra.retry.policy";
   public static final String CASSANDRA_RECONNECTION_POLICY = "cassandra.reconnection.policy";
@@ -169,34 +167,44 @@ public class CassandraInterpreter extends Interpreter {
   public static final String LOGGING_DOWNGRADING_RETRY = "LOGGING_DOWNGRADING";
   public static final String LOGGING_FALLTHROUGH_RETRY = "LOGGING_FALLTHROUGH";
 
-  static final List NO_COMPLETION = Collections.emptyList();
-
-  // TODO(alex): should it include last used timestamp?
   static class SessionHolder {
     DseCluster cluster;
     DseSession session;
+    volatile long lastUsed;
 
     SessionHolder(DseCluster cluster, DseSession session) {
       this.cluster = cluster;
       this.session = session;
+      this.lastUsed = System.currentTimeMillis();
     }
 
     public DseCluster getCluster() {
       return cluster;
     }
 
-    public DseSession getSession() {
+    DseSession getSession() {
       return session;
     }
-  };
+
+    public long getLastUsed() {
+      return lastUsed;
+    }
+
+    void updateLastUsed() {
+      this.lastUsed = System.currentTimeMillis();
+    }
+  }
 
   enum AuthType {
     NO, PASSWORD, GSSAPI
   };
 
-  // TODO(alex): use static + ConcurrentHashMap?
-  // we need to have a job to cleanup it...
-  private Map<String, SessionHolder> sessions = new HashMap<String, SessionHolder>();
+  // TODO(alex): we need to have a job to cleanup it... Use Quartz, or just infinite loop?
+  private static final ConcurrentHashMap<String, SessionHolder> SESSIONS;
+
+  static {
+    SESSIONS = new ConcurrentHashMap<String, SessionHolder>();
+  }
 
   private JavaDriverConfig driverConfig = new JavaDriverConfig();
 
@@ -267,10 +275,9 @@ public class CassandraInterpreter extends Interpreter {
   public void open() {
   }
 
-
-  // See JDBC interpreter regarding getting the Kerberos authentication params
-  DseSession getSession(InterpreterContext context) {
-    String hosts = getProperty(CASSANDRA_HOSTS, DEFAULT_HOST);
+  // TODO(alex): See JDBC interpreter regarding getting the Kerberos authentication params
+  private DseSession getSession(InterpreterContext context) {
+    String hosts = getProperty(CASSANDRA_HOSTS, DEFAULT_HOST).toLowerCase();
     final String[] addresses = hosts.split(",");
 
     // TODO(alex): split auth part into separate function...
@@ -304,8 +311,8 @@ public class CassandraInterpreter extends Interpreter {
           //
           List<String> credentialKeys = new ArrayList<>();
           credentialKeys.add("cassandra.cassandra(" + hosts + ")");
-          for (int i = 0; i < addresses.length; i++) {
-            credentialKeys.add("cassandra.cassandra(" + addresses[i] + ")");
+          for (String address : addresses) {
+            credentialKeys.add("cassandra.cassandra(" + address + ")");
           }
           credentialKeys.add("cassandra.cassandra"); // fallback...
           for (String credKey: credentialKeys) {
@@ -333,6 +340,7 @@ public class CassandraInterpreter extends Interpreter {
           proxyUser = authenticationInfo.getUser();
         } // No break is intended!
         case "CONFIG": {
+          authType = AuthType.PASSWORD;
           username = getProperty(CASSANDRA_CREDENTIALS_USERNAME);
           password = getProperty(CASSANDRA_CREDENTIALS_PASSWORD);
         }
@@ -341,18 +349,17 @@ public class CassandraInterpreter extends Interpreter {
         }
     }
 
-    final String keySource;
+    StringBuilder keySource = new StringBuilder().append(hosts).append(':');
     switch (authType) {
         case PASSWORD: {
-          StringBuilder sb = new StringBuilder().append(username).append(":").append(password);
+          keySource.append(username).append(":").append(password);
           if (proxyUser != null) {
             authProvider = new DsePlainTextAuthProvider(username, password, proxyUser);
-            sb.append(":").append(proxyUser);
+            keySource.append(":").append(proxyUser);
           } else {
             authProvider = new DsePlainTextAuthProvider(username, password);
           }
           logger.info("Username: '" + username + "', pass: '" + password + "', proxyUser: '" + proxyUser + "'");
-          keySource = sb.toString();
           break;
         }
         case GSSAPI: {
@@ -361,26 +368,27 @@ public class CassandraInterpreter extends Interpreter {
             builder.withAuthorizationId(proxyUser);
           }
           authProvider = builder.build();
-          keySource = "";
+          keySource.append("!!!!");
           break;
         }
 
         case NO:
         default: {
-          keySource = "NO_USER_PASSWORD";
+          keySource.append("NO_USER_PASSWORD");
           break;
         }
     }
 
     final DseSession session;
-    String key = DigestUtils.shaHex(keySource);
-    SessionHolder holder = sessions.get(key);
+    String key = DigestUtils.shaHex(keySource.toString());
+    SessionHolder holder = SESSIONS.get(key);
     if (holder == null) {
       DseCluster cluster = createCluster(addresses, authProvider);
       session = cluster.connect();
-      sessions.put(key, new SessionHolder(cluster, session));
+      SESSIONS.putIfAbsent(key, new SessionHolder(cluster, session));
     } else {
       session = holder.getSession();
+      holder.updateLastUsed();
     }
 
     return session;
@@ -388,13 +396,13 @@ public class CassandraInterpreter extends Interpreter {
 
   @Override
   public void close() {
-    for (SessionHolder holder: sessions.values()) {
+    for (SessionHolder holder: SESSIONS.values()) {
       if (holder != null) {
         holder.getSession().close();
         holder.getCluster().close();
       }
     }
-    sessions.clear();
+    SESSIONS.clear();
   }
 
   @Override
@@ -425,7 +433,7 @@ public class CassandraInterpreter extends Interpreter {
   @Override
   public List<InterpreterCompletion> completion(String buf, int cursor,
       InterpreterContext interpreterContext) {
-    return NO_COMPLETION;
+      return Collections.emptyList();
   }
 
   @Override
