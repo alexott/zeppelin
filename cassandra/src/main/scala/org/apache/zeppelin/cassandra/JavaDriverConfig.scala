@@ -1,4 +1,7 @@
 /*
+ * Forked from original Zeppelin code by Alexey Ott. All made changes are
+ * copyrighted by DataStax, 2018
+ *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -124,7 +127,7 @@ class JavaDriverConfig {
 
     LOGGER.debug(socketOptionsInfo.append("\n").toString)
 
-    return socketOptions
+    socketOptions
   }
 
   def getQueryOptions(intpr: Interpreter): QueryOptions = {
@@ -169,7 +172,7 @@ class JavaDriverConfig {
 
     LOGGER.debug(queryOptionsInfo.append("\n").toString)
 
-    return queryOptions
+    queryOptions
   }
 
   def getProtocolVersion(intpr: Interpreter): ProtocolVersion = {
@@ -186,7 +189,7 @@ class JavaDriverConfig {
         DEFAULT_NEW_CONNECTION_THRESHOLD_REMOTE = "1"
         DEFAULT_MAX_REQUEST_PER_CONNECTION_LOCAL = "128"
         DEFAULT_MAX_REQUEST_PER_CONNECTION_REMOTE = "128"
-        return ProtocolVersion.V1
+        ProtocolVersion.V1
       case "2" =>
         DEFAULT_MAX_CONNECTION_PER_HOST_LOCAL = "8"
         DEFAULT_MAX_CONNECTION_PER_HOST_REMOTE = "2"
@@ -196,7 +199,7 @@ class JavaDriverConfig {
         DEFAULT_NEW_CONNECTION_THRESHOLD_REMOTE = "1"
         DEFAULT_MAX_REQUEST_PER_CONNECTION_LOCAL = "128"
         DEFAULT_MAX_REQUEST_PER_CONNECTION_REMOTE = "128"
-        return ProtocolVersion.V2
+        ProtocolVersion.V2
       case "3" =>
         DEFAULT_MAX_CONNECTION_PER_HOST_LOCAL = "1"
         DEFAULT_MAX_CONNECTION_PER_HOST_REMOTE = "1"
@@ -206,7 +209,7 @@ class JavaDriverConfig {
         DEFAULT_NEW_CONNECTION_THRESHOLD_REMOTE = "200"
         DEFAULT_MAX_REQUEST_PER_CONNECTION_LOCAL = "1024"
         DEFAULT_MAX_REQUEST_PER_CONNECTION_REMOTE = "256"
-        return ProtocolVersion.V3
+        ProtocolVersion.V3
       case "4" =>
         DEFAULT_MAX_CONNECTION_PER_HOST_LOCAL = "1"
         DEFAULT_MAX_CONNECTION_PER_HOST_REMOTE = "1"
@@ -216,7 +219,7 @@ class JavaDriverConfig {
         DEFAULT_NEW_CONNECTION_THRESHOLD_REMOTE = "200"
         DEFAULT_MAX_REQUEST_PER_CONNECTION_LOCAL = "1024"
         DEFAULT_MAX_REQUEST_PER_CONNECTION_REMOTE = "256"
-        return ProtocolVersion.V4
+        ProtocolVersion.V4
       case _ =>
         DEFAULT_MAX_CONNECTION_PER_HOST_LOCAL = "1"
         DEFAULT_MAX_CONNECTION_PER_HOST_REMOTE = "1"
@@ -226,7 +229,7 @@ class JavaDriverConfig {
         DEFAULT_NEW_CONNECTION_THRESHOLD_REMOTE = "200"
         DEFAULT_MAX_REQUEST_PER_CONNECTION_LOCAL = "1024"
         DEFAULT_MAX_REQUEST_PER_CONNECTION_REMOTE = "256"
-        return ProtocolVersion.NEWEST_SUPPORTED
+        ProtocolVersion.NEWEST_SUPPORTED
     }
   }
 
@@ -335,7 +338,7 @@ class JavaDriverConfig {
 
     LOGGER.debug(poolingOptionsInfo.append("\n").toString)
 
-    return poolingOptions
+    poolingOptions
   }
 
   def getCompressionProtocol(intpr: Interpreter): ProtocolOptions.Compression = {
@@ -344,7 +347,8 @@ class JavaDriverConfig {
 
     LOGGER.debug("Compression protocol : " + compressionProtocol)
 
-    if (compressionProtocol == null) "NONE"
+    if (compressionProtocol == null)
+      Compression.NONE
     else compressionProtocol.toUpperCase match {
       case "NONE" =>
         compression = Compression.NONE
@@ -355,85 +359,81 @@ class JavaDriverConfig {
       case _ =>
         compression = Compression.NONE
     }
-    return compression
+    compression
   }
 
   def getLoadBalancingPolicy(intpr: Interpreter): LoadBalancingPolicy = {
-    val loadBalancingPolicy: String = intpr.getProperty(CASSANDRA_LOAD_BALANCING_POLICY)
+    val loadBalancingPolicy: String = intpr.getProperty(CASSANDRA_LOAD_BALANCING_POLICY, DEFAULT_POLICY)
     LOGGER.debug("Load Balancing Policy : " + loadBalancingPolicy)
 
     if (isBlank(loadBalancingPolicy) || (DEFAULT_POLICY == loadBalancingPolicy)) {
-      return Policies.defaultLoadBalancingPolicy
+      Policies.defaultLoadBalancingPolicy
     }
     else {
       try {
-        return (Class.forName(loadBalancingPolicy).asInstanceOf[Class[LoadBalancingPolicy]]).newInstance
+        Class.forName(loadBalancingPolicy).asInstanceOf[Class[LoadBalancingPolicy]].newInstance
       }
       catch {
-        case e: Any => {
-          e.printStackTrace
+        case e: Any =>
+          e.printStackTrace()
           throw new RuntimeException("Cannot instantiate " + CASSANDRA_LOAD_BALANCING_POLICY + " = " + loadBalancingPolicy)
-        }
       }
     }
   }
 
   def getRetryPolicy(intpr: Interpreter): RetryPolicy = {
-    val retryPolicy: String = intpr.getProperty(CASSANDRA_RETRY_POLICY)
+    val retryPolicy: String = intpr.getProperty(CASSANDRA_RETRY_POLICY, DEFAULT_POLICY)
     LOGGER.debug("Retry Policy : " + retryPolicy)
 
     if (isBlank(retryPolicy) || (DEFAULT_POLICY == retryPolicy)) {
-      return Policies.defaultRetryPolicy
+      Policies.defaultRetryPolicy
     }
     else {
       try {
-        return (Class.forName(retryPolicy).asInstanceOf[Class[RetryPolicy]]).newInstance
+        Class.forName(retryPolicy).asInstanceOf[Class[RetryPolicy]].newInstance
       }
       catch {
-        case e: Any => {
-          e.printStackTrace
+        case e: Any =>
+          e.printStackTrace()
           throw new RuntimeException("Cannot instantiate " + CASSANDRA_RETRY_POLICY + " = " + retryPolicy)
-        }
       }
     }
   }
 
   def getReconnectionPolicy(intpr: Interpreter): ReconnectionPolicy = {
-    val reconnectionPolicy: String = intpr.getProperty(CASSANDRA_RECONNECTION_POLICY)
+    val reconnectionPolicy: String = intpr.getProperty(CASSANDRA_RECONNECTION_POLICY, DEFAULT_POLICY)
     LOGGER.debug("Reconnection Policy : " + reconnectionPolicy)
 
     if (isBlank(reconnectionPolicy) || (DEFAULT_POLICY == reconnectionPolicy)) {
-      return Policies.defaultReconnectionPolicy
+      Policies.defaultReconnectionPolicy
     }
     else {
       try {
-        return (Class.forName(reconnectionPolicy).asInstanceOf[Class[ReconnectionPolicy]]).newInstance
+        Class.forName(reconnectionPolicy).asInstanceOf[Class[ReconnectionPolicy]].newInstance
       }
       catch {
-        case e: Any => {
-          e.printStackTrace
+        case e: Any =>
+          e.printStackTrace()
           throw new RuntimeException("Cannot instantiate " + CASSANDRA_RECONNECTION_POLICY + " = " + reconnectionPolicy)
-        }
       }
     }
   }
 
   def getSpeculativeExecutionPolicy(intpr: Interpreter): SpeculativeExecutionPolicy = {
-    val specExecPolicy: String = intpr.getProperty(CASSANDRA_SPECULATIVE_EXECUTION_POLICY)
+    val specExecPolicy: String = intpr.getProperty(CASSANDRA_SPECULATIVE_EXECUTION_POLICY, DEFAULT_POLICY)
     LOGGER.debug("Speculative Execution Policy : " + specExecPolicy)
 
     if (isBlank(specExecPolicy) || (DEFAULT_POLICY == specExecPolicy)) {
-      return Policies.defaultSpeculativeExecutionPolicy
+      Policies.defaultSpeculativeExecutionPolicy
     }
     else {
       try {
-        return (Class.forName(specExecPolicy).asInstanceOf[Class[SpeculativeExecutionPolicy]]).newInstance
+        Class.forName(specExecPolicy).asInstanceOf[Class[SpeculativeExecutionPolicy]].newInstance
       }
       catch {
-        case e: Any => {
-          e.printStackTrace
+        case e: Any =>
+          e.printStackTrace()
           throw new RuntimeException("Cannot instantiate " + CASSANDRA_SPECULATIVE_EXECUTION_POLICY + " = " + specExecPolicy)
-        }
       }
     }
   }  
