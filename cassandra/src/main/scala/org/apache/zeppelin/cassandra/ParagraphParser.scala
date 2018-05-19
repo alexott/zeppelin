@@ -1,4 +1,7 @@
 /*
+ * Forked from original Zeppelin code by Alexey Ott. All made changes are
+ * copyrighted by DataStax, 2018
+ *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -71,7 +74,7 @@ object ParagraphParser {
 
   val GENERIC_STATEMENT_PREFIX =
     """(?is)\s*(?:INSERT|UPDATE|DELETE|SELECT|CREATE|ALTER|
-      |DROP|GRANT|REVOKE|TRUNCATE|LIST|USE)\s+""".r
+      |DROP|GRANT|REVOKE|TRUNCATE|LIST|USE|RELOAD|REBUILD)\s+""".r
 
   val VALID_IDENTIFIER = "[a-z][a-z0-9_]*"
 
