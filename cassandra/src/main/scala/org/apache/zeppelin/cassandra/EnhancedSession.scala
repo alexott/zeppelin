@@ -1,4 +1,7 @@
 /*
+ * Forked from original Zeppelin code by Alexey Ott. All made changes are
+ * copyrighted by DataStax, 2018
+ *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -180,6 +183,11 @@ class EnhancedSession(val session: Session) {
     HTML_MAGIC + helpDisplay.formatHelp()
   }
 
+  // TODO(alex): think how to display data...
+  private def execute(describeSearchIndex: DescribeSearchIndexCmd): String = {
+    HTML_MAGIC + noResultDisplay.formatNoResult
+  }
+
 
   def execute(st: Any): Any = {
     st match {
@@ -196,6 +204,7 @@ class EnhancedSession(val session: Session) {
       case x:DescribeAggregatesCmd => execute(x)
       case x:DescribeMaterializedViewCmd => execute(x)
       case x:DescribeMaterializedViewsCmd => execute(x)
+      case x:DescribeSearchIndexCmd => execute(x)
       case x:HelpCmd => execute(x)
       case x:Statement => session.execute(x)
       case _ => throw new InterpreterException(s"Cannot execute statement '$st' of type ${st.getClass}")
