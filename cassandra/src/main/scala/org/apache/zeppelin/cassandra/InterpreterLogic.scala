@@ -1,4 +1,7 @@
 /*
+ * Forked from original Zeppelin code by Alexey Ott. All made changes are
+ * copyrighted by DataStax, 2018
+ *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -219,9 +222,11 @@ class InterpreterLogic(val session: Session)  {
         }
       }
     } else {
-      val lastQuery: String = lastResultSet._2.toString
-      val executionInfo: ExecutionInfo = lastResultSet._1.getExecutionInfo
-      output.append(enhancedSession.displayExecutionStatistics(lastQuery, executionInfo))
+      // TODO(alex): See, do we really need to say "No results" + execution info?
+      // Or try to understand what kind of statement is executed, and show this only for SELECT?
+//      val lastQuery: String = lastResultSet._2.toString
+//      val executionInfo: ExecutionInfo = lastResultSet._1.getExecutionInfo
+//      output.append(enhancedSession.displayExecutionStatistics(lastQuery, executionInfo))
     }
 
     val result: String = output.toString()
