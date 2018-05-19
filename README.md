@@ -1,3 +1,6 @@
+This tree contains modified version of the Apache Zeppelin, reworked to support DataStax Enterprise (DSE).
+All changes are copyright DataStax, 2018.
+
 # Apache Zeppelin
 
 **Documentation:** [User Guide](https://zeppelin.apache.org/docs/latest/index.html)<br/>
