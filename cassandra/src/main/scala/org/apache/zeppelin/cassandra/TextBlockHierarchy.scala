@@ -1,4 +1,7 @@
 /*
+ * Forked from original Zeppelin code by Alexey Ott. All made changes are
+ * copyrighted by DataStax, 2018
+ *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -178,6 +181,15 @@ object TextBlockHierarchy {
       case None => s"DESCRIBE MATERIALIZED VIEW $view;"
     }
   }
+
+  case class DescribeSearchIndexCmd(status: String, what: String, keyspace:Option[String], table: String) extends QueryStatement(DescribeMaterializedView)
+    with DescribeCommandStatement {
+    override val statement: String = keyspace match {
+      case Some(ks) => s"DESCRIBE $status SEARCH INDEX $what ON $ks.$table;"
+      case None => s"DESCRIBE $status SEARCH INDEX $what ON $table;"
+    }
+  }
+
 
   case class HelpCmd(val statement:String = "HELP;") extends QueryStatement(HelpStatementType)
 

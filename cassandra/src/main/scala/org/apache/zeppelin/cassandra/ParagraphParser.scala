@@ -129,6 +129,12 @@ object ParagraphParser {
                                                             """);\s*$""").r
   val DESCRIBE_MATERIALIZED_VIEWS_PATTERN = ("""^(?i)\s*(?:DESCRIBE|DESC)\s+MATERIALIZED\s+VIEWS\s*;\s*$""").r
 
+  val DESCRIBE_SEARCH_INDEX_PATTERN = ("""^(?i)\s*(?:DESCRIBE|DESC)\s+(ACTIVE|PENDING)\s+SEARCH\s+INDEX\s+(SCHEMA|CONFIG)\s+ON\s*("""
+    + VALID_IDENTIFIER + """)\s*;\s*$""").r
+  val DESCRIBE_SEARCH_INDEX_WITH_KEYSPACE_PATTERN = ("""^(?i)\s*(?:DESCRIBE|DESC)\s+(ACTIVE|PENDING)\s+SEARCH\s+INDEX\s+(SCHEMA|CONFIG)\s+ON\s*(""" +
+    VALID_IDENTIFIER + """)\.(""" + VALID_IDENTIFIER + """)\s*;\s*$""").r
+
+
   // TODO(alex): add patterns for "describe ... search index"
 
   val HELP_PATTERN = """^(?i)\s*HELP;\s*$""".r
@@ -168,7 +174,9 @@ class ParagraphParser extends RegexParsers{
   def fetchSize: Parser[FetchSize] = """\s*@fetchSize.+""".r ^^ {
     case x => extractFetchSize(x.trim)
   }
-  def requestTimeOut: Parser[RequestTimeOut] = """\s*@requestTimeOut.+""".r ^^ {case x => extractRequestTimeOut(x.trim)}
+  def requestTimeOut: Parser[RequestTimeOut] = """\s*@requestTimeOut.+""".r ^^ {
+    case x => extractRequestTimeOut(x.trim)
+  }
 
   //Statements
   def createFunctionStatement: Parser[SimpleStm] = UDF_PATTERN ^^{
@@ -230,6 +238,10 @@ class ParagraphParser extends RegexParsers{
     extractDescribeMaterializedViewCmd(_)
   }
 
+  private def describeSearchIndex: Parser[DescribeSearchIndexCmd] = """(?i)\s*(?:DESCRIBE|DESC)\s+(ACTIVE|PENDING)\s+SEARCH\s+INDEX\s+(SCHEMA|CONFIG)\s+ON\s+.*""".r ^^ {
+    extractSearchIndexCmd(_)
+  }
+
 
   //Help
   private def helpCommand: Parser[HelpCmd] = """(?i)\s*HELP.*""".r ^^{
@@ -261,6 +273,7 @@ class ParagraphParser extends RegexParsers{
     describeFunction | describeFunctions |
     describeAggregate | describeAggregates |
     describeMaterializedView | describeMaterializedViews |
+    describeSearchIndex |
     helpCommand | createFunctionStatement | genericStatement)
 
   def extractConsistency(text: String): Consistency = {
@@ -465,6 +478,17 @@ class ParagraphParser extends RegexParsers{
       case DESCRIBE_MATERIALIZED_VIEW_PATTERN(view) => new DescribeMaterializedViewCmd(Option.empty,view)
       case _ => throw new InterpreterException(s"Invalid syntax for DESCRIBE MATERIALIZED VIEW. " +
         s"""It should comply to the patterns: ${DESCRIBE_MATERIALIZED_VIEW_WITH_KEYSPACE_PATTERN.toString} or ${DESCRIBE_MATERIALIZED_VIEW_PATTERN.toString}""".stripMargin)
+    }
+  }
+
+  def extractSearchIndexCmd(text: String): DescribeSearchIndexCmd = {
+    text match {
+      case DESCRIBE_SEARCH_INDEX_WITH_KEYSPACE_PATTERN(status, what, keyspace,view) =>
+        new DescribeSearchIndexCmd(status, what, Option(keyspace),view)
+      case DESCRIBE_SEARCH_INDEX_PATTERN(status, what, view) =>
+        new DescribeSearchIndexCmd(status, what, Option.empty,view)
+      case _ => throw new InterpreterException(s"Invalid syntax for DESCRIBE SEARCH INDEX. " +
+        s"""It should comply to the patterns: ${DESCRIBE_SEARCH_INDEX_WITH_KEYSPACE_PATTERN.toString} or ${DESCRIBE_SEARCH_INDEX_PATTERN.toString}""".stripMargin)
     }
   }
 
