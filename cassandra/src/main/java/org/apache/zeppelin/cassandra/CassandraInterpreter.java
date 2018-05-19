@@ -1,4 +1,7 @@
 /*
+ * Forked from original Zeppelin code by Alexey Ott. All made changes are
+ * copyrighted by DataStax, 2018
+ *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,6 +23,9 @@ import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.JdkSSLOptions;
 import com.datastax.driver.core.ProtocolOptions.Compression;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.dse.DseCluster;
+import com.datastax.driver.dse.DseSession;
+
 import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterResult;
@@ -155,9 +161,9 @@ public class CassandraInterpreter extends Interpreter {
   public static final List NO_COMPLETION = new ArrayList<>();
 
   InterpreterLogic helper;
-  Cluster.Builder clusterBuilder;
-  Cluster cluster;
-  Session session;
+  DseCluster.Builder clusterBuilder;
+  DseCluster cluster;
+  DseSession session;
   private JavaDriverConfig driverConfig = new JavaDriverConfig();
 
   public CassandraInterpreter(Properties properties) {
@@ -179,7 +185,7 @@ public class CassandraInterpreter extends Interpreter {
 
     Compression compression = driverConfig.getCompressionProtocol(this);
 
-    clusterBuilder = Cluster.builder()
+    clusterBuilder = DseCluster.builder()
             .addContactPoints(addresses)
             .withPort(port)
             .withProtocolVersion(driverConfig.getProtocolVersion(this))
