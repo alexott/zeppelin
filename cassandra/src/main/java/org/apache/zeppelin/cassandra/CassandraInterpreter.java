@@ -29,6 +29,7 @@ import com.datastax.driver.dse.auth.DseGSSAPIAuthProvider;
 import com.datastax.driver.dse.auth.DsePlainTextAuthProvider;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.zeppelin.annotation.ZeppelinApi;
 import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterResult;
@@ -210,6 +211,14 @@ public class CassandraInterpreter extends Interpreter {
 
   public CassandraInterpreter(Properties properties) {
     super(properties);
+  }
+
+
+  public String getProperty(String key, String defaultValue) {
+    String value = getProperty().getProperty(key);
+    logger.debug("key: {}, value: {}, defaultValue: {}", key, value, defaultValue);
+
+    return (value == null ? defaultValue : value);
   }
 
   private DseCluster createCluster(String[] addresses, AuthProvider authProvider ) {

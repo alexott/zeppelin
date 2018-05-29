@@ -168,13 +168,6 @@ public abstract class Interpreter {
     return value;
   }
 
-  @ZeppelinApi
-  public String getProperty(String key, String defaultValue) {
-    String value = getProperty().getProperty(key);
-    logger.debug("key: {}, value: {}, defaultValue: {}", key, value, defaultValue);
-
-    return (value == null ? defaultValue : value);
-  }
 
   public String getClassName() {
     return this.getClass().getName();
