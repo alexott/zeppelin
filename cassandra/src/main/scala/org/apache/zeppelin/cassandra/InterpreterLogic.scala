@@ -187,6 +187,7 @@ object InterpreterLogic {
       .getColumnDefinitions
       .asList
       .toList // Java list -> Scala list
+      .filterNot(definition => definition.getName() == "solr_query")
       .map(definition => (definition.getName, definition.getType))
 
 
