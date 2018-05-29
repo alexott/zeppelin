@@ -29,6 +29,7 @@ import com.datastax.driver.dse.auth.DseGSSAPIAuthProvider;
 import com.datastax.driver.dse.auth.DsePlainTextAuthProvider;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.zeppelin.annotation.ZeppelinApi;
 import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterResult;

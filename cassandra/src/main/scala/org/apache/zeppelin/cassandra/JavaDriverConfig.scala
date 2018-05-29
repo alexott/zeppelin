@@ -37,7 +37,7 @@ class JavaDriverConfig {
 
   val LOGGER = LoggerFactory.getLogger(classOf[JavaDriverConfig])
 
-  def getSocketOptions(intpr: Interpreter): SocketOptions = {
+  def getSocketOptions(intpr: CassandraInterpreter): SocketOptions = {
     val socketOptions: SocketOptions = new SocketOptions
     val socketOptionsInfo: StringBuilder = new StringBuilder("Socket options : \n\n")
 
@@ -175,7 +175,7 @@ class JavaDriverConfig {
     queryOptions
   }
 
-  def getProtocolVersion(intpr: Interpreter): ProtocolVersion = {
+  def getProtocolVersion(intpr: CassandraInterpreter): ProtocolVersion = {
     val protocolVersion: String = intpr.getProperty(CASSANDRA_PROTOCOL_VERSION)
     LOGGER.debug("Protocol version : " + protocolVersion)
 
@@ -233,7 +233,7 @@ class JavaDriverConfig {
     }
   }
 
-  def getPoolingOptions(intpr: Interpreter): PoolingOptions = {
+  def getPoolingOptions(intpr: CassandraInterpreter): PoolingOptions = {
     val poolingOptions: PoolingOptions = new PoolingOptions
     val poolingOptionsInfo: StringBuilder = new StringBuilder("Pooling options : \n\n")
 
@@ -341,7 +341,7 @@ class JavaDriverConfig {
     poolingOptions
   }
 
-  def getCompressionProtocol(intpr: Interpreter): ProtocolOptions.Compression = {
+  def getCompressionProtocol(intpr: CassandraInterpreter): ProtocolOptions.Compression = {
     var compression: ProtocolOptions.Compression = null
     val compressionProtocol: String = intpr.getProperty(CASSANDRA_COMPRESSION_PROTOCOL)
 
@@ -362,7 +362,7 @@ class JavaDriverConfig {
     compression
   }
 
-  def getLoadBalancingPolicy(intpr: Interpreter): LoadBalancingPolicy = {
+  def getLoadBalancingPolicy(intpr: CassandraInterpreter): LoadBalancingPolicy = {
     val loadBalancingPolicy: String = intpr.getProperty(CASSANDRA_LOAD_BALANCING_POLICY, DEFAULT_POLICY)
     LOGGER.debug("Load Balancing Policy : " + loadBalancingPolicy)
 
@@ -381,7 +381,7 @@ class JavaDriverConfig {
     }
   }
 
-  def getRetryPolicy(intpr: Interpreter): RetryPolicy = {
+  def getRetryPolicy(intpr: CassandraInterpreter): RetryPolicy = {
     val retryPolicy: String = intpr.getProperty(CASSANDRA_RETRY_POLICY, DEFAULT_POLICY)
     LOGGER.debug("Retry Policy : " + retryPolicy)
 
@@ -400,7 +400,7 @@ class JavaDriverConfig {
     }
   }
 
-  def getReconnectionPolicy(intpr: Interpreter): ReconnectionPolicy = {
+  def getReconnectionPolicy(intpr: CassandraInterpreter): ReconnectionPolicy = {
     val reconnectionPolicy: String = intpr.getProperty(CASSANDRA_RECONNECTION_POLICY, DEFAULT_POLICY)
     LOGGER.debug("Reconnection Policy : " + reconnectionPolicy)
 
@@ -419,7 +419,7 @@ class JavaDriverConfig {
     }
   }
 
-  def getSpeculativeExecutionPolicy(intpr: Interpreter): SpeculativeExecutionPolicy = {
+  def getSpeculativeExecutionPolicy(intpr: CassandraInterpreter): SpeculativeExecutionPolicy = {
     val specExecPolicy: String = intpr.getProperty(CASSANDRA_SPECULATIVE_EXECUTION_POLICY, DEFAULT_POLICY)
     LOGGER.debug("Speculative Execution Policy : " + specExecPolicy)
 
