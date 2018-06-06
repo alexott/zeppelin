@@ -293,91 +293,91 @@ public class CassandraInterpreter extends Interpreter {
     AuthenticationInfo authenticationInfo = context.getAuthenticationInfo();
 
     switch (authSource) {
-        // Credentials are taken from 'Credentials' cache
-        case "CREDENTIALS-PROXY": {
-          if (authenticationInfo.isAnonymous()) {
-            throw new RuntimeException("Can't proxy anonymous user. Use 'CONFIG' or 'CREDENTIALS' auth source");
+      // Credentials are taken from 'Credentials' cache
+      case "CREDENTIALS-PROXY": {
+        if (authenticationInfo.isAnonymous()) {
+          throw new RuntimeException("Can't proxy anonymous user. Use 'CONFIG' or 'CREDENTIALS' auth source");
+        }
+        proxyUser = authenticationInfo.getUser();
+      } // No break is intended!
+      case "CREDENTIALS": { // get username/password from configured credentials
+        authType = AuthType.PASSWORD;
+        if (authenticationInfo == null) {
+          throw new RuntimeException("Can't retrieve authentication information from configured credentials");
+        }
+        UserCredentials userCredentials = authenticationInfo.getUserCredentials();
+        if (userCredentials == null) {
+          throw new RuntimeException("Can't retrieve user credentials from configured credentials");
+        }
+        //
+        List<String> credentialKeys = new ArrayList<>();
+        credentialKeys.add("cassandra.cassandra(" + hosts + ")");
+        for (String address : addresses) {
+          credentialKeys.add("cassandra.cassandra(" + address + ")");
+        }
+        credentialKeys.add("cassandra.cassandra"); // fallback...
+        for (String credKey: credentialKeys) {
+          UsernamePassword usernamePassword = userCredentials.getUsernamePassword(credKey);
+          if (usernamePassword == null) {
+            continue;
           }
-          proxyUser = authenticationInfo.getUser();
-        } // No break is intended!
-        case "CREDENTIALS": { // get username/password from configured credentials
-          authType = AuthType.PASSWORD;
-          if (authenticationInfo == null) {
-            throw new RuntimeException("Can't retrieve authentication information from configured credentials");
-          }
-          UserCredentials userCredentials = authenticationInfo.getUserCredentials();
-          if (userCredentials == null) {
-            throw new RuntimeException("Can't retrieve user credentials from configured credentials");
-          }
-          //
-          List<String> credentialKeys = new ArrayList<>();
-          credentialKeys.add("cassandra.cassandra(" + hosts + ")");
-          for (String address : addresses) {
-            credentialKeys.add("cassandra.cassandra(" + address + ")");
-          }
-          credentialKeys.add("cassandra.cassandra"); // fallback...
-          for (String credKey: credentialKeys) {
-            UsernamePassword usernamePassword = userCredentials.getUsernamePassword(credKey);
-            if (usernamePassword == null) {
-              continue;
-            }
-            username = usernamePassword.getUsername();
-            password = usernamePassword.getPassword();
-            break;
-          }
-          if (username == null || password == null) {
-            throw new RuntimeException("Can't retrieve user's name & password! " +
-                    "Please add username & password in the 'Credential' section as 'cassandra.cassandra'" +
-                    " (for all hosts), or as 'cassandra.cassandra(HOSTNAME)' (for specific host)");
-          }
+          username = usernamePassword.getUsername();
+          password = usernamePassword.getPassword();
           break;
         }
+        if (username == null || password == null) {
+          throw new RuntimeException("Can't retrieve user's name & password! " +
+                  "Please add username & password in the 'Credential' section as 'cassandra.cassandra'" +
+                  " (for all hosts), or as 'cassandra.cassandra(HOSTNAME)' (for specific host)");
+        }
+        break;
+      }
 
-        // Credentials are taken from interpreter's configuration
-        case "CONFIG-PROXY": {
-          if (authenticationInfo.isAnonymous()) {
-            throw new RuntimeException("Can't proxy anonymous user. Use 'CONFIG' or 'CREDENTIALS' auth source");
-          }
-          proxyUser = authenticationInfo.getUser();
-        } // No break is intended!
-        case "CONFIG": {
-          authType = AuthType.PASSWORD;
-          username = getProperty(CASSANDRA_CREDENTIALS_USERNAME);
-          password = getProperty(CASSANDRA_CREDENTIALS_PASSWORD);
+      // Credentials are taken from interpreter's configuration
+      case "CONFIG-PROXY": {
+        if (authenticationInfo.isAnonymous()) {
+          throw new RuntimeException("Can't proxy anonymous user. Use 'CONFIG' or 'CREDENTIALS' auth source");
         }
-        case "NO":
-        default: { // No authentication by default
-        }
+        proxyUser = authenticationInfo.getUser();
+      } // No break is intended!
+      case "CONFIG": {
+        authType = AuthType.PASSWORD;
+        username = getProperty(CASSANDRA_CREDENTIALS_USERNAME);
+        password = getProperty(CASSANDRA_CREDENTIALS_PASSWORD);
+      }
+      case "NO":
+      default: { // No authentication by default
+      }
     }
 
     StringBuilder keySource = new StringBuilder().append(hosts).append(':');
     switch (authType) {
-        case PASSWORD: {
-          keySource.append(username).append(":").append(password);
-          if (proxyUser != null) {
-            authProvider = new DsePlainTextAuthProvider(username, password, proxyUser);
-            keySource.append(":").append(proxyUser);
-          } else {
-            authProvider = new DsePlainTextAuthProvider(username, password);
-          }
-          logger.info("Username: '" + username + "', pass: '" + password + "', proxyUser: '" + proxyUser + "'");
-          break;
+      case PASSWORD: {
+        keySource.append(username).append(":").append(password);
+        if (proxyUser != null) {
+          authProvider = new DsePlainTextAuthProvider(username, password, proxyUser);
+          keySource.append(":").append(proxyUser);
+        } else {
+          authProvider = new DsePlainTextAuthProvider(username, password);
         }
-        case GSSAPI: {
-          DseGSSAPIAuthProvider.Builder builder = DseGSSAPIAuthProvider.builder();
-          if (proxyUser != null) {
-            builder.withAuthorizationId(proxyUser);
-          }
-          authProvider = builder.build();
-          keySource.append("!!!!");
-          break;
+        logger.info("Username: '" + username + "', pass: '" + password + "', proxyUser: '" + proxyUser + "'");
+        break;
+      }
+      case GSSAPI: {
+        DseGSSAPIAuthProvider.Builder builder = DseGSSAPIAuthProvider.builder();
+        if (proxyUser != null) {
+          builder.withAuthorizationId(proxyUser);
         }
+        authProvider = builder.build();
+        keySource.append("!!!!");
+        break;
+      }
 
-        case NO:
-        default: {
-          keySource.append("NO_USER_PASSWORD");
-          break;
-        }
+      case NO:
+      default: {
+        keySource.append("NO_USER_PASSWORD");
+        break;
+      }
     }
 
     final DseSession session;
@@ -434,7 +434,7 @@ public class CassandraInterpreter extends Interpreter {
   @Override
   public List<InterpreterCompletion> completion(String buf, int cursor,
       InterpreterContext interpreterContext) {
-      return Collections.emptyList();
+    return Collections.emptyList();
   }
 
   @Override
