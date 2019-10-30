@@ -241,6 +241,13 @@
         "defaultValue": "none",
         "description": "Cassandra truststore password. Default = none",
         "type": "password"
+      },
+      "datastax.apollo.secure.bundle": {
+        "envName": null,
+        "propertyName": "datastax.apollo.secure.bundle",
+        "defaultValue": "none",
+        "description": "Path to DataStax Apollo Secure Bundle. Default = none",
+        "type": "string"
       }
     },
     "editor": {
