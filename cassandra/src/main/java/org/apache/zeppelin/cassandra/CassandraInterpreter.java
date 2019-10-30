@@ -20,6 +20,7 @@ import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.JdkSSLOptions;
 import com.datastax.driver.core.ProtocolOptions.Compression;
 import com.datastax.driver.core.Session;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterResult;
@@ -31,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
+import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -117,6 +119,8 @@ public class CassandraInterpreter extends Interpreter {
           "cassandra.ssl.truststore.path";
   public static final String CASSANDRA_TRUSTSTORE_PASSWORD =
           "cassandra.ssl.truststore.password";
+  public static final String DATASTAX_APOLLO_SECURE_BUNDLE =
+          "datastax.apollo.secure.bundle";
 
 
   public static final String DEFAULT_HOST = "localhost";
@@ -125,7 +129,8 @@ public class CassandraInterpreter extends Interpreter {
   public static final String DEFAULT_KEYSPACE = "system";
   public static final String DEFAULT_PROTOCOL_VERSION = "4";
   public static final String DEFAULT_COMPRESSION = "NONE";
-  public static final String DEFAULT_CREDENTIAL = "none";
+  public static final String NONE_VALUE = "none";
+  public static final String DEFAULT_CREDENTIAL = NONE_VALUE;
   public static final String DEFAULT_POLICY = "DEFAULT";
   public static final String DEFAULT_PARALLELISM = "10";
   static String DEFAULT_NEW_CONNECTION_THRESHOLD_LOCAL = "100";
@@ -177,57 +182,76 @@ public class CassandraInterpreter extends Interpreter {
     LOGGER.info("Bootstrapping Cassandra Java Driver to connect to " + hosts.toString() +
             "on port " + port);
 
-    Compression compression = driverConfig.getCompressionProtocol(this);
+    clusterBuilder = Cluster.builder();
 
-    clusterBuilder = Cluster.builder()
-            .addContactPoints(addresses)
-            .withPort(port)
-            .withProtocolVersion(driverConfig.getProtocolVersion(this))
-            .withClusterName(getProperty(CASSANDRA_CLUSTER_NAME))
-            .withCompression(compression)
-            .withCredentials(getProperty(CASSANDRA_CREDENTIALS_USERNAME),
-                    getProperty(CASSANDRA_CREDENTIALS_PASSWORD))
-            .withLoadBalancingPolicy(driverConfig.getLoadBalancingPolicy(this))
-            .withRetryPolicy(driverConfig.getRetryPolicy(this))
-            .withReconnectionPolicy(driverConfig.getReconnectionPolicy(this))
-            .withSpeculativeExecutionPolicy(driverConfig.getSpeculativeExecutionPolicy(this))
-            .withMaxSchemaAgreementWaitSeconds(
-                    parseInt(getProperty(CASSANDRA_MAX_SCHEMA_AGREEMENT_WAIT_SECONDS)))
-            .withPoolingOptions(driverConfig.getPoolingOptions(this))
-            .withQueryOptions(driverConfig.getQueryOptions(this))
-            .withSocketOptions(driverConfig.getSocketOptions(this));
-
-    final String runWithSSL = getProperty(CASSANDRA_WITH_SSL);
-    if (runWithSSL != null && runWithSSL.equals("true")) {
-      LOGGER.debug("Cassandra Interpreter: Using SSL");
-
-      try {
-        final SSLContext sslContext;
-        {
-          final KeyStore trustStore = KeyStore.getInstance("JKS");
-          final InputStream stream = Files.newInputStream(Paths.get(
-                  getProperty(CASSANDRA_TRUSTSTORE_PATH)));
-          trustStore.load(stream, getProperty(CASSANDRA_TRUSTSTORE_PASSWORD).toCharArray());
-
-          final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
-                  TrustManagerFactory.getDefaultAlgorithm());
-          trustManagerFactory.init(trustStore);
-
-          sslContext = SSLContext.getInstance("TLS");
-          sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
-        }
-        clusterBuilder = clusterBuilder.withSSL(JdkSSLOptions.builder()
-                .withSSLContext(sslContext)
-                .build());
-      } catch (Exception e) {
-        LOGGER.error(e.toString());
+    final String secureBundle = getProperty(DATASTAX_APOLLO_SECURE_BUNDLE);
+    if (StringUtils.isNotEmpty(secureBundle) && !NONE_VALUE.equalsIgnoreCase(secureBundle)) {
+      File bundleFile = new File(secureBundle);
+      if (!bundleFile.exists()) {
+        LOGGER.error("Apollo secure bundle file isn't found at path '{}'", secureBundle);
+        throw new RuntimeException("Incorrect path to Apollo secure bundle: '"
+                + secureBundle + "'");
       }
+      clusterBuilder.withCloudSecureConnectBundle(bundleFile)
+              .withCredentials(getProperty(CASSANDRA_CREDENTIALS_USERNAME),
+                      getProperty(CASSANDRA_CREDENTIALS_PASSWORD));
     } else {
-      LOGGER.debug("Cassandra Interpreter: Not using SSL");
+      clusterBuilder.addContactPoints(addresses)
+              .withPort(port)
+              .withProtocolVersion(driverConfig.getProtocolVersion(this))
+              .withClusterName(getProperty(CASSANDRA_CLUSTER_NAME))
+              .withCredentials(getProperty(CASSANDRA_CREDENTIALS_USERNAME),
+                      getProperty(CASSANDRA_CREDENTIALS_PASSWORD))
+              .withLoadBalancingPolicy(driverConfig.getLoadBalancingPolicy(this))
+              .withRetryPolicy(driverConfig.getRetryPolicy(this))
+              .withReconnectionPolicy(driverConfig.getReconnectionPolicy(this))
+              .withSpeculativeExecutionPolicy(driverConfig.getSpeculativeExecutionPolicy(this))
+              .withMaxSchemaAgreementWaitSeconds(
+                      parseInt(getProperty(CASSANDRA_MAX_SCHEMA_AGREEMENT_WAIT_SECONDS)))
+              .withPoolingOptions(driverConfig.getPoolingOptions(this))
+              .withQueryOptions(driverConfig.getQueryOptions(this))
+              .withSocketOptions(driverConfig.getSocketOptions(this));
+      final String runWithSSL = getProperty(CASSANDRA_WITH_SSL);
+      if (runWithSSL != null && runWithSSL.equals("true")) {
+        LOGGER.debug("Cassandra Interpreter: Using SSL");
+
+        try {
+          final SSLContext sslContext;
+          {
+            final KeyStore trustStore = KeyStore.getInstance("JKS");
+            final InputStream stream = Files.newInputStream(Paths.get(
+                    getProperty(CASSANDRA_TRUSTSTORE_PATH)));
+            trustStore.load(stream, getProperty(CASSANDRA_TRUSTSTORE_PASSWORD).toCharArray());
+
+            final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
+                    TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init(trustStore);
+
+            sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
+          }
+          clusterBuilder = clusterBuilder.withSSL(JdkSSLOptions.builder()
+                  .withSSLContext(sslContext)
+                  .build());
+        } catch (Exception e) {
+          LOGGER.error(e.toString());
+        }
+      } else {
+        LOGGER.debug("Cassandra Interpreter: Not using SSL");
+      }
     }
+    // setting the common parameters
+    Compression compression = driverConfig.getCompressionProtocol(this);
+    clusterBuilder.withCompression(compression);
 
     cluster = clusterBuilder.build();
-    session = cluster.connect();
+    String keyspace = getProperty(CASSANDRA_KEYSPACE_NAME, DEFAULT_KEYSPACE);
+    if (DEFAULT_KEYSPACE.equals(keyspace)) {
+      session = cluster.connect();
+    } else {
+      session = cluster.connect(keyspace);
+    }
+
     helper = new InterpreterLogic(session);
   }
 
