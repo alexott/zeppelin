@@ -199,6 +199,13 @@
         "defaultValue": "none",
         "description": "Cassandra truststore password. Default = none",
         "type": "password"
+      },
+      "cassandra.datastax.astra.secure_connect_bundle.path": {
+        "envName": null,
+        "propertyName": "cassandra.datastax.astra.secure_connect_bundle.path",
+        "defaultValue": "none",
+        "description": "Path to the secure bandle of DataStax Astra. Default = none",
+        "type": "string"
       }
     },
     "editor": {
